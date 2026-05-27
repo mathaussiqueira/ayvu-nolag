@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="AYVU NoLag"
-        Icon="Assets/icon.ico"
+        Icon="pack://application:,,,/Assets/icon.ico"
         Width="1200" Height="820"
         MinWidth="960" MinHeight="580"
         Background="{StaticResource AyvuBg}"

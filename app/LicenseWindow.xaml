@@ -3,7 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="AYVU NoLag"
-    Icon="Assets/icon.ico"
+    Icon="pack://application:,,,/Assets/icon.ico"
     Width="420" Height="520"
     WindowStyle="None"
     AllowsTransparency="True"
