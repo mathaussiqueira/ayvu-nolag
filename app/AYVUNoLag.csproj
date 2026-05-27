@@ -9,6 +9,15 @@
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <AssemblyName>AYVU NoLag</AssemblyName>
     <RootNamespace>AYVUNoLag</RootNamespace>
+    <!-- Metadados do executável (exibidos no Windows Explorer → Propriedades) -->
+    <Product>AYVU NoLag</Product>
+    <Title>AYVU NoLag</Title>
+    <Company>AYVU</Company>
+    <Description>Diagnóstico e otimização de rede para gaming</Description>
+    <Version>1.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
+    <Copyright>© 2026 AYVU</Copyright>
   </PropertyGroup>
 
 </Project>
