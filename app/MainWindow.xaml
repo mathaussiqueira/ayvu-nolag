@@ -46,7 +46,7 @@
                                FontSize="18" FontWeight="SemiBold" FontFamily="Segoe UI"
                                VerticalAlignment="Center"/>
                     <Border Style="{StaticResource VersionBadge}">
-                        <TextBlock Text="v1.1.4" Foreground="{StaticResource AyvuText}"
+                        <TextBlock Text="v1.1.5" Foreground="{StaticResource AyvuText}"
                                    FontSize="10" FontWeight="SemiBold"/>
                     </Border>
                     <Border x:Name="LicenseBadge"
@@ -147,14 +147,12 @@
                             ToolTip="Reverte todas as otimizações"
                             Click="PararOtimizacaoButton_Click"/>
 
-                    <!-- WARP toggle (desativado temporariamente) -->
+                    <!-- WARP toggle (oculto até estar pronto) -->
                     <Button x:Name="WarpButton"
                             Content="◎  WARP"
                             Style="{StaticResource OutlineAyvuNativeButton}"
                             Height="44" Padding="24,0" Margin="8,0,0,0"
-                            IsEnabled="False"
-                            Opacity="0.35"
-                            ToolTip="Em breve — otimização de rota via Cloudflare WARP"
+                            Visibility="Collapsed"
                             Click="WarpButton_Click"/>
                 </StackPanel>
             </Grid>
