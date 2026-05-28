@@ -46,7 +46,7 @@
                                FontSize="18" FontWeight="SemiBold" FontFamily="Segoe UI"
                                VerticalAlignment="Center"/>
                     <Border Style="{StaticResource VersionBadge}">
-                        <TextBlock Text="v0.1.0" Foreground="{StaticResource AyvuText}"
+                        <TextBlock Text="v1.1.2" Foreground="{StaticResource AyvuText}"
                                    FontSize="10" FontWeight="SemiBold"/>
                     </Border>
                     <Border x:Name="LicenseBadge"
@@ -57,6 +57,26 @@
                                    FontSize="10" FontWeight="SemiBold"
                                    Foreground="{StaticResource AyvuMuted}"/>
                     </Border>
+                    <!-- Input Lag badge -->
+                    <Border x:Name="InputLagBadge"
+                            Background="#0A0A0A" BorderBrush="#242424" BorderThickness="1"
+                            CornerRadius="5" Padding="10,4" Margin="6,2,0,0"
+                            Visibility="Collapsed">
+                        <TextBlock x:Name="InputLagBadgeText"
+                                   FontSize="10" FontWeight="SemiBold"
+                                   Foreground="#EF4444"/>
+                    </Border>
+
+                    <!-- WARP status badge -->
+                    <Border x:Name="WarpBadge"
+                            Background="#0A0A0A" BorderBrush="#242424" BorderThickness="1"
+                            CornerRadius="5" Padding="10,4" Margin="6,2,0,0"
+                            Visibility="Collapsed">
+                        <TextBlock x:Name="WarpBadgeText"
+                                   FontSize="10" FontWeight="SemiBold"
+                                   Foreground="#F5A623"/>
+                    </Border>
+
                     <Border x:Name="StatusBadge"
                             Background="#0A0A0A" BorderBrush="#242424" BorderThickness="1"
                             CornerRadius="5" Padding="10,4" Margin="12,2,0,0">
@@ -115,6 +135,24 @@
                             Visibility="Collapsed"
                             ToolTip="Reverte a prioridade do processo e pausa o boost"
                             Click="PauseBoostButton_Click"/>
+
+                    <!-- Input Lag toggle -->
+                    <Button x:Name="InputLagButton"
+                            Content="⚡  Reduzir Input Lag"
+                            Style="{StaticResource OutlineAyvuNativeButton}"
+                            Height="44" Padding="24,0" Margin="8,0,0,0"
+                            ToolTip="Timer resolution, power plan, TCP e Game Mode"
+                            Click="InputLagButton_Click"/>
+
+                    <!-- WARP toggle (desativado temporariamente) -->
+                    <Button x:Name="WarpButton"
+                            Content="◎  WARP"
+                            Style="{StaticResource OutlineAyvuNativeButton}"
+                            Height="44" Padding="24,0" Margin="8,0,0,0"
+                            IsEnabled="False"
+                            Opacity="0.35"
+                            ToolTip="Em breve — otimização de rota via Cloudflare WARP"
+                            Click="WarpButton_Click"/>
                 </StackPanel>
             </Grid>
 
@@ -352,36 +390,76 @@
                         </Grid>
                     </Border>
 
-                    <!-- Ações de Boost -->
-                    <Border Grid.Column="2" Style="{StaticResource LargePanel}" Margin="0">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <Border Width="3" Height="16" Background="{StaticResource AyvuGreen}"
-                                        CornerRadius="2" Margin="0,0,10,0"/>
-                                <TextBlock Text="Ações de Boost"
-                                           Foreground="{StaticResource AyvuText}"
-                                           FontSize="15" FontWeight="SemiBold"/>
-                            </StackPanel>
-                            <ScrollViewer Grid.Row="1" Margin="0,14,0,0"
-                                          VerticalScrollBarVisibility="Auto"
-                                          HorizontalScrollBarVisibility="Disabled"
-                                          Padding="0,0,6,0">
-                                <ListView x:Name="BoostList" BorderThickness="0" Background="Transparent">
-                                    <ListView.View>
-                                        <GridView>
-                                            <GridViewColumn Header="Ação"    DisplayMemberBinding="{Binding Name}"    Width="140"/>
-                                            <GridViewColumn Header="OK"      DisplayMemberBinding="{Binding Success}" Width="45"/>
-                                            <GridViewColumn Header="Detalhe" DisplayMemberBinding="{Binding Detail}"  Width="220"/>
-                                        </GridView>
-                                    </ListView.View>
-                                </ListView>
-                            </ScrollViewer>
-                        </Grid>
-                    </Border>
+                    <!-- Ações de Boost + Input Lag (empilhados) -->
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="10"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Ações de Boost -->
+                        <Border Grid.Row="0" Style="{StaticResource LargePanel}" Margin="0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Width="3" Height="16" Background="{StaticResource AyvuGreen}"
+                                            CornerRadius="2" Margin="0,0,10,0"/>
+                                    <TextBlock Text="Ações de Boost"
+                                               Foreground="{StaticResource AyvuText}"
+                                               FontSize="15" FontWeight="SemiBold"/>
+                                </StackPanel>
+                                <ScrollViewer Grid.Row="1" Margin="0,14,0,0"
+                                              VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              Padding="0,0,6,0">
+                                    <ListView x:Name="BoostList" BorderThickness="0" Background="Transparent">
+                                        <ListView.View>
+                                            <GridView>
+                                                <GridViewColumn Header="Ação"    DisplayMemberBinding="{Binding Name}"    Width="130"/>
+                                                <GridViewColumn Header="OK"      DisplayMemberBinding="{Binding Success}" Width="40"/>
+                                                <GridViewColumn Header="Detalhe" DisplayMemberBinding="{Binding Detail}"  Width="200"/>
+                                            </GridView>
+                                        </ListView.View>
+                                    </ListView>
+                                </ScrollViewer>
+                            </Grid>
+                        </Border>
+
+                        <!-- Input Lag -->
+                        <Border Grid.Row="2" Style="{StaticResource LargePanel}" Margin="0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Width="3" Height="16" Background="#EF4444"
+                                            CornerRadius="2" Margin="0,0,10,0"/>
+                                    <TextBlock Text="Redução de Input Lag"
+                                               Foreground="{StaticResource AyvuText}"
+                                               FontSize="15" FontWeight="SemiBold"/>
+                                </StackPanel>
+                                <ScrollViewer Grid.Row="1" Margin="0,14,0,0"
+                                              VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              Padding="0,0,6,0">
+                                    <ListView x:Name="InputLagList" BorderThickness="0" Background="Transparent">
+                                        <ListView.View>
+                                            <GridView>
+                                                <GridViewColumn Header="Otimização" DisplayMemberBinding="{Binding Name}"    Width="140"/>
+                                                <GridViewColumn Header="OK"         DisplayMemberBinding="{Binding Success}" Width="40"/>
+                                                <GridViewColumn Header="Detalhe"    DisplayMemberBinding="{Binding Detail}"  Width="200"/>
+                                            </GridView>
+                                        </ListView.View>
+                                    </ListView>
+                                </ScrollViewer>
+                            </Grid>
+                        </Border>
+                    </Grid>
 
                     <!-- Log de Atividade -->
                     <Border Grid.Column="4" Style="{StaticResource LargePanel}" Margin="0">
@@ -431,6 +509,148 @@
                         </Grid>
                     </Border>
                 </Grid>
+            </Grid>
+
+            <!-- ── Banner de atualização ────────────────────────────────────── -->
+            <Grid x:Name="UpdateBanner"
+                  Grid.RowSpan="3"
+                  Visibility="Collapsed"
+                  Background="#88000000"
+                  Panel.ZIndex="200">
+                <Border MaxWidth="460"
+                        Background="#111111"
+                        BorderBrush="{StaticResource AyvuGreen}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Padding="36,28">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,18">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Width="8" Height="8" Background="{StaticResource AyvuGreen}"
+                                        CornerRadius="4" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Atualização disponível"
+                                           Foreground="{StaticResource AyvuText}"
+                                           FontSize="16" FontWeight="Bold"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="✕"
+                                    Style="{StaticResource WindowChromeButton}"
+                                    Width="32" Height="32"
+                                    VerticalAlignment="Center"
+                                    ToolTip="Dispensar"
+                                    Click="UpdateDismiss_Click" />
+                        </Grid>
+                        <TextBlock x:Name="UpdateBannerText"
+                                   Text="Nova versão disponível"
+                                   Foreground="{StaticResource AyvuMuted}"
+                                   FontSize="13" Margin="0,0,0,24"
+                                   TextWrapping="Wrap" />
+                        <StackPanel x:Name="UpdateProgressPanel" Visibility="Collapsed" Margin="0,0,0,20">
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Baixando..."
+                                           Foreground="{StaticResource AyvuMuted}"
+                                           FontSize="12" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" x:Name="UpdateProgressText" Text="0%"
+                                           Foreground="{StaticResource AyvuGreen}"
+                                           FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            </Grid>
+                            <ProgressBar x:Name="UpdateProgressBar"
+                                         Height="4" Minimum="0" Maximum="100"
+                                         Foreground="{StaticResource AyvuGreen}"
+                                         Background="#2A2A2A" BorderThickness="0" />
+                        </StackPanel>
+                        <StackPanel x:Name="UpdateTextPanel" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="Agora não"
+                                    Style="{StaticResource OutlineAyvuNativeButton}"
+                                    Height="40" Padding="20,0"
+                                    Click="UpdateDismiss_Click" />
+                            <Button x:Name="UpdateInstallButton"
+                                    Content="Atualizar agora"
+                                    Style="{StaticResource PrimaryAyvuNativeButton}"
+                                    Height="40" Padding="20,0" Margin="10,0,0,0"
+                                    Click="UpdateInstall_Click" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- ── Modal: instalar WARP ──────────────────────────────────────── -->
+            <Grid x:Name="WarpInstallBanner"
+                  Grid.RowSpan="3"
+                  Visibility="Collapsed"
+                  Background="#88000000"
+                  Panel.ZIndex="199">
+                <Border MaxWidth="460"
+                        Background="#111111"
+                        BorderBrush="#F5A623"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Padding="36,28">
+                    <StackPanel>
+                        <!-- Cabeçalho -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                            <Border Width="8" Height="8" Background="#F5A623"
+                                    CornerRadius="4" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="WarpInstallTitle"
+                                       Text="Configurar WireGuard Tunnel"
+                                       Foreground="{StaticResource AyvuText}"
+                                       FontSize="16" FontWeight="Bold"/>
+                        </StackPanel>
+
+                        <!-- Descrição (visível antes de instalar) -->
+                        <TextBlock x:Name="WarpInstallDesc"
+                                   Text="O AYVU NoLag irá baixar o WireGuard Engine (~10 MB) e conectar diretamente à rede Cloudflare. Nenhum app adicional será instalado."
+                                   Foreground="{StaticResource AyvuMuted}"
+                                   FontSize="13" TextWrapping="Wrap" Margin="0,0,0,24"/>
+
+                        <!-- Progresso (visível durante download/instalação) -->
+                        <StackPanel x:Name="WarpInstallProgress" Visibility="Collapsed" Margin="0,0,0,20">
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="WarpInstallStatus"
+                                           Text="Baixando..."
+                                           Foreground="{StaticResource AyvuMuted}"
+                                           FontSize="12" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" x:Name="WarpInstallPct"
+                                           Text="0%"
+                                           Foreground="#F5A623"
+                                           FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </Grid>
+                            <ProgressBar x:Name="WarpInstallBar"
+                                         Height="4" Minimum="0" Maximum="100"
+                                         Foreground="#F5A623"
+                                         Background="#2A2A2A" BorderThickness="0"/>
+                        </StackPanel>
+
+                        <!-- Botões -->
+                        <StackPanel x:Name="WarpInstallButtons" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="Agora não"
+                                    Style="{StaticResource OutlineAyvuNativeButton}"
+                                    Height="40" Padding="20,0"
+                                    Click="WarpInstallDismiss_Click"/>
+                            <Button x:Name="WarpInstallConfirmBtn"
+                                    Content="Configurar agora"
+                                    Style="{StaticResource PrimaryAyvuNativeButton}"
+                                    Height="40" Padding="20,0" Margin="10,0,0,0"
+                                    Click="WarpInstallConfirm_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
             </Grid>
 
         </Grid>

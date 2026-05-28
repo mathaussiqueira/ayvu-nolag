@@ -1,12 +1,16 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Net.Http;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using AYVUNoLag.Config;
 using AYVUNoLag.Models;
 using AYVUNoLag.Services;
-using System.Windows.Controls;
 
 namespace AYVUNoLag;
 
@@ -25,6 +29,8 @@ public partial class MainWindow : Window
     // ── Services ─────────────────────────────────────────────────────────────
     private readonly NetworkDiagnosticService _diagnosticService = new();
     private readonly LocalBoostService        _boostService      = new();
+    private readonly WarpService              _warpService       = new();
+    private readonly InputLagService         _inputLagService   = new();
 
     // ── State ─────────────────────────────────────────────────────────────────
     private CancellationTokenSource?                _monitorCts;
@@ -43,6 +49,16 @@ public partial class MainWindow : Window
     private static readonly SolidColorBrush BrushMuted   = new(Color.FromRgb(0xA3, 0xA3, 0xA3));
     private static readonly SolidColorBrush BrushAccent  = new(Color.FromRgb(0xFF, 0x44, 0x00));
 
+    // ── Auto-update ───────────────────────────────────────────────────────────
+    private const string CurrentVersion = "1.1.2";
+    private string _updateDownloadUrl   = "";
+    private static readonly HttpClient _downloadHttp = new() { Timeout = TimeSpan.FromMinutes(30) };
+    private static readonly HttpClient _licenseHttp  = new() { Timeout = TimeSpan.FromSeconds(8) };
+
+    // ── WARP state ────────────────────────────────────────────────────────────
+    private WarpStatus _warpStatus = WarpStatus.NotReady;
+    private bool       _warpBusy   = false;
+
     // ── Constructor ───────────────────────────────────────────────────────────
     public MainWindow()
     {
@@ -52,6 +68,13 @@ public partial class MainWindow : Window
         LoadGames();
         AddLog("App iniciado. Monitoramento em tempo real ativado.", "OK", BrushSuccess);
         StartLiveMonitor();
+        _ = Task.Run(CheckForUpdateAsync);
+        _ = Task.Run(async () =>
+        {
+            // Remove túnel preso que possa estar causando 100% de packet loss
+            await _warpService.CleanupStaleAsync();
+            Dispatcher.Invoke(RefreshWarpStatus);
+        });
     }
 
     // ── License ───────────────────────────────────────────────────────────────
@@ -77,6 +100,329 @@ public partial class MainWindow : Window
     }
 
     // ══════════════════════════════════════════════════════════════════════════
+    // INPUT LAG
+    // ══════════════════════════════════════════════════════════════════════════
+
+    private void InputLagButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_inputLagService.IsActive)
+        {
+            // Reverter
+            var results = _inputLagService.Revert();
+            InputLagList.ItemsSource = results;
+
+            InputLagButton.Content       = "⚡  Reduzir Input Lag";
+            InputLagBadge.Visibility     = Visibility.Collapsed;
+            StatusBarText.Text           = "Otimizações de input lag revertidas.";
+
+            AddLog("Input lag: otimizações revertidas.", "OK", BrushMuted);
+        }
+        else
+        {
+            // Aplicar
+            var results = _inputLagService.Apply();
+            InputLagList.ItemsSource = results;
+
+            var failCount = results.Count(r => !r.Success);
+            InputLagButton.Content = "⚡  Reverter Input Lag";
+
+            InputLagBadge.Visibility     = Visibility.Visible;
+            InputLagBadgeText.Text       = "⚡ Input Lag ativo";
+            InputLagBadgeText.Foreground = new SolidColorBrush(Color.FromRgb(0xEF, 0x44, 0x44));
+
+            var msg = failCount == 0
+                ? "Input lag: todas as otimizações aplicadas."
+                : $"Input lag: {results.Count - failCount}/{results.Count} otimizações aplicadas.";
+
+            StatusBarText.Text = msg;
+            AddLog(msg, failCount == 0 ? "OK" : "!", failCount == 0 ? BrushSuccess : BrushWarning);
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // WARP
+    // ══════════════════════════════════════════════════════════════════════════
+
+    private void RefreshWarpStatus()
+    {
+        _warpStatus = _warpService.GetStatus();
+        Dispatcher.Invoke(() => ApplyWarpStatus(_warpStatus));
+    }
+
+    private void ApplyWarpStatus(WarpStatus status)
+    {
+        switch (status)
+        {
+            case WarpStatus.NotReady:
+                WarpButton.Content      = "◎  WARP";
+                WarpBadge.Visibility    = Visibility.Collapsed;
+                break;
+
+            case WarpStatus.Disconnected:
+                WarpButton.Content      = "◎  Conectar WARP";
+                WarpBadge.Visibility    = Visibility.Collapsed;
+                break;
+
+            case WarpStatus.Connecting:
+                WarpButton.Content       = "◎  Conectando...";
+                WarpBadge.Visibility     = Visibility.Visible;
+                WarpBadgeText.Text       = "◎ WARP conectando";
+                WarpBadgeText.Foreground = new SolidColorBrush(Color.FromRgb(0xF5, 0xA6, 0x23));
+                break;
+
+            case WarpStatus.Connected:
+                WarpButton.Content       = "◉  Desconectar WARP";
+                WarpBadge.Visibility     = Visibility.Visible;
+                WarpBadgeText.Text       = "◉ WARP ativo";
+                WarpBadgeText.Foreground = BrushSuccess;
+                break;
+        }
+
+        WarpButton.IsEnabled = !_warpBusy;
+    }
+
+    private async void WarpButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_warpBusy) return;
+
+        var status = _warpService.GetStatus();
+
+        // Engine não baixado ainda → abre modal de setup
+        if (status == WarpStatus.NotReady)
+        {
+            WarpInstallBanner.Visibility = Visibility.Visible;
+            return;
+        }
+
+        _warpBusy = true;
+        WarpButton.IsEnabled = false;
+
+        if (status == WarpStatus.Connected)
+        {
+            WarpButton.Content = "◎  Desconectando...";
+            AddLog("Desconectando túnel WireGuard...", "...", BrushWarning);
+            var (ok, detail) = await _warpService.DisconnectAsync();
+            AddLog(detail, ok ? "OK" : "✕", ok ? BrushMuted : BrushDanger);
+        }
+        else
+        {
+            WarpButton.Content = "◎  Conectando...";
+            AddLog("Iniciando túnel Cloudflare WARP...", "...", BrushWarning);
+            var (ok, detail) = await _warpService.ConnectAsync(
+                msg => Dispatcher.Invoke(() => { WarpButton.Content = $"◎  {msg}"; AddLog(msg, "...", BrushWarning); }));
+            AddLog(detail, ok ? "OK" : "✕", ok ? BrushSuccess : BrushDanger);
+            if (ok) AddLog("Tráfego passando pela rede Cloudflare. Sem apps externos.", "↑", BrushSuccess);
+        }
+
+        _warpBusy = false;
+        RefreshWarpStatus();
+    }
+
+    private CancellationTokenSource? _warpInstallCts;
+
+    private void WarpInstallDismiss_Click(object sender, RoutedEventArgs e)
+    {
+        _warpInstallCts?.Cancel();
+        WarpInstallBanner.Visibility = Visibility.Collapsed;
+        ResetWarpInstallModal();
+    }
+
+    private async void WarpInstallConfirm_Click(object sender, RoutedEventArgs e)
+    {
+        WarpInstallDesc.Visibility     = Visibility.Collapsed;
+        WarpInstallProgress.Visibility = Visibility.Visible;
+        WarpInstallButtons.Visibility  = Visibility.Collapsed;
+        WarpInstallTitle.Text          = "Configurando WireGuard Engine...";
+
+        _warpInstallCts = new CancellationTokenSource();
+        AddLog("Baixando WireGuard Engine (~10 MB)...", "...", BrushWarning);
+
+        var (ok, detail) = await _warpService.EnsureEngineAsync(
+            (pct, msg) => Dispatcher.Invoke(() =>
+            {
+                WarpInstallBar.Value   = pct;
+                WarpInstallPct.Text    = $"{pct}%";
+                WarpInstallStatus.Text = msg;
+            }),
+            _warpInstallCts.Token);
+
+        if (ok)
+        {
+            WarpInstallBanner.Visibility = Visibility.Collapsed;
+            ResetWarpInstallModal();
+            AddLog("WireGuard Engine pronto. Conectando...", "OK", BrushSuccess);
+
+            _warpBusy = true;
+            WarpButton.IsEnabled = false;
+            WarpButton.Content   = "◎  Conectando...";
+
+            var (cOk, cDetail) = await _warpService.ConnectAsync(
+                msg => Dispatcher.Invoke(() => AddLog(msg, "...", BrushWarning)));
+
+            _warpBusy = false;
+            AddLog(cDetail, cOk ? "OK" : "✕", cOk ? BrushSuccess : BrushDanger);
+            RefreshWarpStatus();
+        }
+        else
+        {
+            WarpInstallTitle.Text          = "Erro ao configurar WireGuard";
+            WarpInstallDesc.Text           = detail;
+            WarpInstallDesc.Visibility     = Visibility.Visible;
+            WarpInstallProgress.Visibility = Visibility.Collapsed;
+            WarpInstallButtons.Visibility  = Visibility.Visible;
+            WarpInstallConfirmBtn.Content  = "Tentar novamente";
+            AddLog($"WireGuard Engine: {detail}", "✕", BrushDanger);
+        }
+    }
+
+    private void ResetWarpInstallModal()
+    {
+        WarpInstallTitle.Text          = "Configurar WireGuard Tunnel";
+        WarpInstallDesc.Text           = "O AYVU NoLag irá baixar o WireGuard Engine (~10 MB) e conectar diretamente à rede Cloudflare. Nenhum app adicional será instalado.";
+        WarpInstallDesc.Visibility     = Visibility.Visible;
+        WarpInstallProgress.Visibility = Visibility.Collapsed;
+        WarpInstallButtons.Visibility  = Visibility.Visible;
+        WarpInstallConfirmBtn.Content  = "Configurar agora";
+        WarpInstallBar.Value           = 0;
+        WarpInstallPct.Text            = "0%";
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // AUTO-UPDATE
+    // ══════════════════════════════════════════════════════════════════════════
+
+    private async Task CheckForUpdateAsync()
+    {
+        try
+        {
+            var json = await _licenseHttp.GetStringAsync(FirebaseConfig.ConfigUrl);
+            if (string.IsNullOrWhiteSpace(json) || json.Trim() == "null") return;
+
+            using var doc = JsonDocument.Parse(json);
+            var root      = doc.RootElement;
+
+            if (!root.TryGetProperty("latestVersion", out var latestProp)) return;
+            if (!root.TryGetProperty("downloadUrl",   out var urlProp))    return;
+
+            var latest      = latestProp.GetString() ?? "";
+            var downloadUrl = urlProp.GetString()    ?? "";
+
+            if (string.IsNullOrWhiteSpace(latest) || string.IsNullOrWhiteSpace(downloadUrl)) return;
+            if (!IsNewerVersion(latest, CurrentVersion)) return;
+
+            _updateDownloadUrl = downloadUrl;
+            Dispatcher.Invoke(() =>
+            {
+                UpdateBannerText.Text   = $"Nova versão v{latest} disponível";
+                UpdateBanner.Visibility = Visibility.Visible;
+            });
+        }
+        catch { /* silencioso */ }
+    }
+
+    private static bool IsNewerVersion(string remote, string local)
+    {
+        try   { return Version.Parse(remote) > Version.Parse(local); }
+        catch { return string.Compare(remote, local, StringComparison.Ordinal) > 0; }
+    }
+
+    private async void UpdateInstall_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_updateDownloadUrl)) return;
+
+        UpdateInstallButton.IsEnabled  = false;
+        UpdateTextPanel.Visibility     = Visibility.Collapsed;
+        UpdateProgressPanel.Visibility = Visibility.Visible;
+
+        try
+        {
+            var tempExe = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ayvu_nolag_update.exe");
+
+            using var response = await _downloadHttp.GetAsync(
+                _updateDownloadUrl, HttpCompletionOption.ResponseHeadersRead);
+            response.EnsureSuccessStatusCode();
+
+            var total = response.Content.Headers.ContentLength ?? -1L;
+            await using var stream = await response.Content.ReadAsStreamAsync();
+            await using var file   = System.IO.File.Create(tempExe);
+
+            var buffer    = new byte[81920];
+            long received = 0;
+            int  read;
+
+            while ((read = await stream.ReadAsync(buffer)) > 0)
+            {
+                await file.WriteAsync(buffer.AsMemory(0, read));
+                received += read;
+                if (total > 0)
+                {
+                    var pct = (int)(received * 100 / total);
+                    Dispatcher.Invoke(() =>
+                    {
+                        UpdateProgressBar.Value = pct;
+                        UpdateProgressText.Text = $"{pct}%";
+                    });
+                }
+            }
+
+            file.Close();
+            LaunchUpdaterScript(tempExe);
+            Application.Current.Shutdown();
+        }
+        catch (Exception ex)
+        {
+            UpdateInstallButton.IsEnabled  = true;
+            UpdateTextPanel.Visibility     = Visibility.Visible;
+            UpdateProgressPanel.Visibility = Visibility.Collapsed;
+            UpdateBannerText.Text          = $"Erro ao baixar: {ex.Message}";
+        }
+    }
+
+    private void UpdateDismiss_Click(object sender, RoutedEventArgs e)
+    {
+        UpdateBanner.Visibility = Visibility.Collapsed;
+    }
+
+    private static void LaunchUpdaterScript(string tempExe)
+    {
+        var currentExe = Environment.ProcessPath ?? "";
+        if (string.IsNullOrWhiteSpace(currentExe)) return;
+
+        var scriptPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ayvu_nolag_updater.cmd");
+
+        var script =
+            "@echo off\r\n" +
+            $"set SRC={tempExe}\r\n" +
+            $"set DST={currentExe}\r\n" +
+            "timeout /t 8 /nobreak >nul\r\n" +
+            "set /a TRIES=0\r\n" +
+            ":retry\r\n" +
+            "copy /Y \"%SRC%\" \"%DST%\"\r\n" +
+            "if %errorlevel% equ 0 goto ok\r\n" +
+            "set /a TRIES+=1\r\n" +
+            "if %TRIES% lss 15 (\r\n" +
+            "    timeout /t 2 /nobreak >nul\r\n" +
+            "    goto retry\r\n" +
+            ")\r\n" +
+            "goto done\r\n" +
+            ":ok\r\n" +
+            "start \"\" \"%DST%\"\r\n" +
+            ":done\r\n" +
+            "del \"%SRC%\" 2>nul\r\n" +
+            "(goto) 2>nul & del \"%~f0\"\r\n";
+
+        System.IO.File.WriteAllText(scriptPath, script, System.Text.Encoding.ASCII);
+
+        Process.Start(new ProcessStartInfo
+        {
+            FileName        = "cmd.exe",
+            Arguments       = $"/c \"{scriptPath}\"",
+            UseShellExecute = true,
+            WindowStyle     = ProcessWindowStyle.Hidden,
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
     // TASKBAR FIX — impede que a janela cubra a barra de tarefas ao maximizar
     // ══════════════════════════════════════════════════════════════════════════
     protected override void OnSourceInitialized(EventArgs e)
@@ -90,6 +436,8 @@ public partial class MainWindow : Window
     {
         _monitorCts?.Cancel();
         _scanCts?.Cancel();
+        // Garante que timer resolution e power plan são revertidos ao sair
+        if (_inputLagService.IsActive) _inputLagService.Revert();
         base.OnClosed(e);
     }
 
