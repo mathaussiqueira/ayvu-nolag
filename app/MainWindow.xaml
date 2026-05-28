@@ -46,7 +46,7 @@
                                FontSize="18" FontWeight="SemiBold" FontFamily="Segoe UI"
                                VerticalAlignment="Center"/>
                     <Border Style="{StaticResource VersionBadge}">
-                        <TextBlock Text="v1.1.5" Foreground="{StaticResource AyvuText}"
+                        <TextBlock Text="v1.2.0" Foreground="{StaticResource AyvuText}"
                                    FontSize="10" FontWeight="SemiBold"/>
                     </Border>
                     <Border x:Name="LicenseBadge"
@@ -146,6 +146,14 @@
                             Visibility="Collapsed"
                             ToolTip="Reverte todas as otimizações"
                             Click="PararOtimizacaoButton_Click"/>
+
+                    <!-- Overlay in-game -->
+                    <Button x:Name="OverlayButton"
+                            Content="◫  Overlay"
+                            Style="{StaticResource OutlineAyvuNativeButton}"
+                            Height="44" Padding="20,0" Margin="8,0,0,0"
+                            ToolTip="Mostra/esconde overlay in-game (Alt+V)"
+                            Click="OverlayButton_Click"/>
 
                     <!-- WARP toggle (oculto até estar pronto) -->
                     <Button x:Name="WarpButton"

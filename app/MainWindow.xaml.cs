@@ -50,7 +50,7 @@ public partial class MainWindow : Window
     private static readonly SolidColorBrush BrushAccent  = new(Color.FromRgb(0xFF, 0x44, 0x00));
 
     // ── Auto-update ───────────────────────────────────────────────────────────
-    private const string CurrentVersion = "1.1.5";
+    private const string CurrentVersion = "1.2.0";
     private string _updateDownloadUrl   = "";
     private static readonly HttpClient _downloadHttp = new() { Timeout = TimeSpan.FromMinutes(30) };
     private static readonly HttpClient _licenseHttp  = new() { Timeout = TimeSpan.FromSeconds(8) };
@@ -58,6 +58,15 @@ public partial class MainWindow : Window
     // ── WARP state ────────────────────────────────────────────────────────────
     private WarpStatus _warpStatus = WarpStatus.NotReady;
     private bool       _warpBusy   = false;
+
+    // ── Overlay ───────────────────────────────────────────────────────────────
+    private OverlayWindow? _overlayWindow;
+    private const int  HOTKEY_ID = 9001;
+    private const uint MOD_ALT   = 0x0001;
+    private const uint VK_V      = 0x56;
+
+    [DllImport("user32.dll")] private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+    [DllImport("user32.dll")] private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
     // ── Constructor ───────────────────────────────────────────────────────────
     public MainWindow()
@@ -452,20 +461,33 @@ public partial class MainWindow : Window
         base.OnSourceInitialized(e);
         var source = (HwndSource)PresentationSource.FromVisual(this);
         source.AddHook(HwndHook);
+        // Registra hotkey global Alt+Shift+N para toggle do overlay
+        RegisterHotKey(source.Handle, HOTKEY_ID, MOD_ALT, VK_V);
     }
 
     protected override void OnClosed(EventArgs e)
     {
         _monitorCts?.Cancel();
         _scanCts?.Cancel();
-        // Garante que timer resolution e power plan são revertidos ao sair
         if (_inputLagService.IsActive) _inputLagService.Revert();
+        _overlayWindow?.Close();
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        UnregisterHotKey(hwnd, HOTKEY_ID);
         base.OnClosed(e);
     }
 
     private IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        const int WM_HOTKEY        = 0x0312;
         const int WM_GETMINMAXINFO = 0x0024;
+
+        if (msg == WM_HOTKEY && wParam.ToInt32() == HOTKEY_ID)
+        {
+            ToggleOverlay();
+            handled = true;
+            return IntPtr.Zero;
+        }
+
         if (msg != WM_GETMINMAXINFO) return IntPtr.Zero;
 
         var mmi     = Marshal.PtrToStructure<MINMAXINFO>(lParam);
@@ -537,6 +559,22 @@ public partial class MainWindow : Window
     private void ToggleMaximize()
         => WindowState = WindowState == WindowState.Maximized
             ? WindowState.Normal : WindowState.Maximized;
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // OVERLAY IN-GAME
+    // ══════════════════════════════════════════════════════════════════════════
+    private void OverlayButton_Click(object sender, RoutedEventArgs e)
+        => ToggleOverlay();
+
+    private void ToggleOverlay()
+    {
+        _overlayWindow ??= new OverlayWindow();
+
+        if (_overlayWindow.IsVisible)
+            _overlayWindow.Hide();
+        else
+            _overlayWindow.Show();
+    }
 
     // ══════════════════════════════════════════════════════════════════════════
     // LIVE MONITOR
@@ -665,6 +703,18 @@ public partial class MainWindow : Window
 
             VerdictText.Text      = verdict;
             StatusBarText.Text    = verdict;
+        }
+
+        // ── Overlay ───────────────────────────────────────────────────────
+        if (successful.Length > 0)
+        {
+            var avg    = Math.Round(successful.Average(), 1);
+            var jitter = Math.Round(successful.Select(v => Math.Abs(v - avg)).Average(), 1);
+            _overlayWindow?.UpdateMetrics(avg, jitter, loss, _boostedProcessId.HasValue);
+        }
+        else
+        {
+            _overlayWindow?.UpdateMetrics(-1, -1, loss, _boostedProcessId.HasValue);
         }
 
         // ── Timestamps ────────────────────────────────────────────────────
