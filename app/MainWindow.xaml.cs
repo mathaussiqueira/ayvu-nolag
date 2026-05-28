@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Runtime.InteropServices;
@@ -33,13 +33,13 @@ public partial class MainWindow : Window
     private readonly InputLagService         _inputLagService   = new();
 
     // ── State ─────────────────────────────────────────────────────────────────
-    private CancellationTokenSource?                _monitorCts;
-    private CancellationTokenSource?                _scanCts;
-    private readonly List<PingSample>               _rollingWindow  = [];
-    private readonly ObservableCollection<PingSample> _livePingItems = [];
-    private readonly ObservableCollection<LogEntry> _log            = [];
-    private int  _liveCycle       = 0;
-    private int  _boostCount      = 0;
+    private CancellationTokenSource?                    _monitorCts;
+    private CancellationTokenSource?                    _scanCts;
+    private readonly List<PingSample>                   _rollingWindow  = [];
+    private readonly ObservableCollection<PingSample>   _livePingItems  = [];
+    private readonly ObservableCollection<LogEntry>     _log            = [];
+    private readonly ObservableCollection<GameProcess>  _gameComboItems = [];
+    private int  _liveCycle        = 0;
     private int? _boostedProcessId = null;
 
     // ── Color constants ───────────────────────────────────────────────────────
@@ -50,7 +50,7 @@ public partial class MainWindow : Window
     private static readonly SolidColorBrush BrushAccent  = new(Color.FromRgb(0xFF, 0x44, 0x00));
 
     // ── Auto-update ───────────────────────────────────────────────────────────
-    private const string CurrentVersion = "1.1.2";
+    private const string CurrentVersion = "1.1.3";
     private string _updateDownloadUrl   = "";
     private static readonly HttpClient _downloadHttp = new() { Timeout = TimeSpan.FromMinutes(30) };
     private static readonly HttpClient _licenseHttp  = new() { Timeout = TimeSpan.FromSeconds(8) };
@@ -63,8 +63,9 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        LogList.ItemsSource  = _log;
-        PingList.ItemsSource = _livePingItems;
+        LogList.ItemsSource      = _log;
+        PingList.ItemsSource     = _livePingItems;
+        GameComboBox.ItemsSource = _gameComboItems;
         LoadGames();
         AddLog("App iniciado. Monitoramento em tempo real ativado.", "OK", BrushSuccess);
         StartLiveMonitor();
@@ -100,43 +101,64 @@ public partial class MainWindow : Window
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // INPUT LAG
+    // OTIMIZAR (Boost + Input Lag unificados)
     // ══════════════════════════════════════════════════════════════════════════
 
-    private void InputLagButton_Click(object sender, RoutedEventArgs e)
+    private void OtimizarButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_inputLagService.IsActive)
-        {
-            // Reverter
-            var results = _inputLagService.Revert();
-            InputLagList.ItemsSource = results;
+        // Processo selecionado no ComboBox (ou no JogosList como fallback)
+        var selected = GameComboBox.SelectedItem as GameProcess
+                    ?? JogosList.SelectedItem   as GameProcess;
 
-            InputLagButton.Content       = "⚡  Reduzir Input Lag";
-            InputLagBadge.Visibility     = Visibility.Collapsed;
-            StatusBarText.Text           = "Otimizações de input lag revertidas.";
+        // Aplica Boost + Input Lag
+        var boostResults    = _boostService.RunBoost(selected?.ProcessId);
+        var inputLagResults = _inputLagService.Apply();
+        var allResults      = boostResults.Concat(inputLagResults).ToList();
 
-            AddLog("Input lag: otimizações revertidas.", "OK", BrushMuted);
-        }
-        else
-        {
-            // Aplicar
-            var results = _inputLagService.Apply();
-            InputLagList.ItemsSource = results;
+        OtimizacoesList.ItemsSource = allResults;
+        _boostedProcessId = selected?.ProcessId;
 
-            var failCount = results.Count(r => !r.Success);
-            InputLagButton.Content = "⚡  Reverter Input Lag";
+        // Atualiza UI
+        var failCount = allResults.Count(r => !r.Success);
+        OtimizarButton.Visibility        = Visibility.Collapsed;
+        PararOtimizacaoButton.Visibility = Visibility.Visible;
+        OtimizacoesSubtitle.Text         = "  —  ativo";
 
-            InputLagBadge.Visibility     = Visibility.Visible;
-            InputLagBadgeText.Text       = "⚡ Input Lag ativo";
-            InputLagBadgeText.Foreground = new SolidColorBrush(Color.FromRgb(0xEF, 0x44, 0x44));
+        InputLagBadge.Visibility     = Visibility.Visible;
+        InputLagBadgeText.Text       = "✓ Otimizado";
+        InputLagBadgeText.Foreground = BrushSuccess;
 
-            var msg = failCount == 0
-                ? "Input lag: todas as otimizações aplicadas."
-                : $"Input lag: {results.Count - failCount}/{results.Count} otimizações aplicadas.";
+        StatusPillText.Text       = "● Otimizado";
+        StatusPillText.Foreground = BrushAccent;
 
-            StatusBarText.Text = msg;
-            AddLog(msg, failCount == 0 ? "OK" : "!", failCount == 0 ? BrushSuccess : BrushWarning);
-        }
+        var msg = selected is null
+            ? "Sistema otimizado para jogo."
+            : $"Sistema otimizado — {selected.Name} priorizado.";
+
+        if (failCount > 0) msg += $" ({failCount} item(s) com erro)";
+        StatusBarText.Text = msg;
+        AddLog(msg, failCount == 0 ? "OK" : "!", failCount == 0 ? BrushSuccess : BrushWarning);
+    }
+
+    private void PararOtimizacaoButton_Click(object sender, RoutedEventArgs e)
+    {
+        var boostResults    = _boostService.PauseBoost(_boostedProcessId);
+        var inputLagResults = _inputLagService.IsActive ? _inputLagService.Revert() : [];
+        var allResults      = boostResults.Concat(inputLagResults).ToList();
+
+        OtimizacoesList.ItemsSource = allResults;
+        _boostedProcessId = null;
+
+        OtimizarButton.Visibility        = Visibility.Visible;
+        PararOtimizacaoButton.Visibility = Visibility.Collapsed;
+        OtimizacoesSubtitle.Text         = "  —  clique em Otimizar para ativar";
+
+        InputLagBadge.Visibility = Visibility.Collapsed;
+        SetPillIdle();
+
+        const string msg = "Otimizações revertidas.";
+        StatusBarText.Text = msg;
+        AddLog(msg, "OK", BrushMuted);
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -595,7 +617,20 @@ public partial class MainWindow : Window
 
         // ── Game list ─────────────────────────────────────────────────────
         if (games is not null)
+        {
             JogosList.ItemsSource = games;
+
+            // Sincroniza ComboBox preservando selecao atual
+            var previousSelection = GameComboBox.SelectedItem as GameProcess;
+            _gameComboItems.Clear();
+            foreach (var g in games) _gameComboItems.Add(g);
+
+            if (previousSelection is not null)
+            {
+                var match = _gameComboItems.FirstOrDefault(g => g.ProcessId == previousSelection.ProcessId);
+                if (match is not null) GameComboBox.SelectedItem = match;
+            }
+        }
 
         // ── Metrics ───────────────────────────────────────────────────────
         var successful = _rollingWindow
@@ -685,49 +720,6 @@ public partial class MainWindow : Window
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // BOOST
-    // ══════════════════════════════════════════════════════════════════════════
-    private void BoostButton_Click(object sender, RoutedEventArgs e)
-    {
-        var selected = JogosList.SelectedItem as GameProcess;
-        var results  = _boostService.RunBoost(selected?.ProcessId);
-        BoostList.ItemsSource = results;
-
-        _boostCount++;
-        _boostedProcessId = selected?.ProcessId;
-
-        var msg = selected is null
-            ? "Boost aplicado. Selecione um jogo em Jogos Detectados para priorizar o processo."
-            : $"Boost aplicado — {selected.Name} priorizado como High.";
-
-        AddLog(msg, "OK", BrushSuccess);
-        StatusPillText.Text       = "● Boost Ativo";
-        StatusPillText.Foreground = BrushAccent;
-        StatusBarText.Text        = msg;
-
-        PauseBoostButton.Visibility = Visibility.Visible;
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // PAUSAR BOOST
-    // ══════════════════════════════════════════════════════════════════════════
-    private void PauseBoostButton_Click(object sender, RoutedEventArgs e)
-    {
-        var results = _boostService.PauseBoost(_boostedProcessId);
-        BoostList.ItemsSource = results;
-
-        _boostedProcessId = null;
-
-        var msg = "Boost pausado. Prioridades revertidas para Normal.";
-        AddLog(msg, "OK", BrushMuted);
-
-        StatusPillText.Text       = "● Monitorando";
-        StatusPillText.Foreground = BrushSuccess;
-        StatusBarText.Text        = msg;
-
-        PauseBoostButton.Visibility = Visibility.Collapsed;
-    }
 
     // ══════════════════════════════════════════════════════════════════════════
     // PRIORIZAR PROCESSO
@@ -788,6 +780,8 @@ public partial class MainWindow : Window
     {
         var games = GameProcessService.FindLikelyGameProcesses();
         JogosList.ItemsSource = games;
+        _gameComboItems.Clear();
+        foreach (var g in games) _gameComboItems.Add(g);
     }
 
     private void AddLog(string message, string status, SolidColorBrush brush)
@@ -811,7 +805,7 @@ public partial class MainWindow : Window
     private void SetBusy(bool busy)
     {
         ScanButton.IsEnabled         = !busy;
-        BoostButton.IsEnabled        = !busy;
+        OtimizarButton.IsEnabled     = !busy;
         PrioritizeButton.IsEnabled   = !busy;
         ExecutionProgress.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
 

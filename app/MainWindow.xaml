@@ -1,4 +1,4 @@
-<Window x:Class="AYVUNoLag.MainWindow"
+﻿<Window x:Class="AYVUNoLag.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
@@ -46,7 +46,7 @@
                                FontSize="18" FontWeight="SemiBold" FontFamily="Segoe UI"
                                VerticalAlignment="Center"/>
                     <Border Style="{StaticResource VersionBadge}">
-                        <TextBlock Text="v1.1.2" Foreground="{StaticResource AyvuText}"
+                        <TextBlock Text="v1.1.3" Foreground="{StaticResource AyvuText}"
                                    FontSize="10" FontWeight="SemiBold"/>
                     </Border>
                     <Border x:Name="LicenseBadge"
@@ -124,25 +124,31 @@
                             Height="44" Padding="24,0" Margin="0,0,8,0"
                             ToolTip="Executa ping, jitter, packet loss e DNS"
                             Click="ScanButton_Click"/>
-                    <Button x:Name="BoostButton" Content="Executar Boost"
+                    <!-- Seletor de jogo -->
+                    <ComboBox x:Name="GameComboBox"
+                              Width="180" Height="44" Margin="8,0,0,0"
+                              DisplayMemberPath="Name"
+                              Background="#0F0F0F" Foreground="#E5E5E5"
+                              BorderBrush="#303030" BorderThickness="1"
+                              Padding="10,0" FontSize="13" FontFamily="Segoe UI"
+                              VerticalContentAlignment="Center"
+                              ToolTip="Selecione o jogo para priorizar o processo (opcional)"/>
+
+                    <!-- Botão único: Otimizar -->
+                    <Button x:Name="OtimizarButton"
+                            Content="▶  Otimizar"
                             Style="{StaticResource PrimaryAyvuNativeButton}"
-                            Height="44" Padding="24,0"
-                            ToolTip="Prioriza jogo selecionado e libera memória"
-                            Click="BoostButton_Click"/>
-                    <Button x:Name="PauseBoostButton" Content="⏸  Pausar Boost"
+                            Height="44" Padding="24,0" Margin="8,0,0,0"
+                            ToolTip="Aplica Boost + Input Lag de uma vez"
+                            Click="OtimizarButton_Click"/>
+
+                    <Button x:Name="PararOtimizacaoButton"
+                            Content="⏹  Parar"
                             Style="{StaticResource OutlineAyvuNativeButton}"
                             Height="44" Padding="24,0" Margin="8,0,0,0"
                             Visibility="Collapsed"
-                            ToolTip="Reverte a prioridade do processo e pausa o boost"
-                            Click="PauseBoostButton_Click"/>
-
-                    <!-- Input Lag toggle -->
-                    <Button x:Name="InputLagButton"
-                            Content="⚡  Reduzir Input Lag"
-                            Style="{StaticResource OutlineAyvuNativeButton}"
-                            Height="44" Padding="24,0" Margin="8,0,0,0"
-                            ToolTip="Timer resolution, power plan, TCP e Game Mode"
-                            Click="InputLagButton_Click"/>
+                            ToolTip="Reverte todas as otimizações"
+                            Click="PararOtimizacaoButton_Click"/>
 
                     <!-- WARP toggle (desativado temporariamente) -->
                     <Button x:Name="WarpButton"
@@ -390,76 +396,40 @@
                         </Grid>
                     </Border>
 
-                    <!-- Ações de Boost + Input Lag (empilhados) -->
-                    <Grid Grid.Column="2">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="10"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-
-                        <!-- Ações de Boost -->
-                        <Border Grid.Row="0" Style="{StaticResource LargePanel}" Margin="0">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Border Width="3" Height="16" Background="{StaticResource AyvuGreen}"
-                                            CornerRadius="2" Margin="0,0,10,0"/>
-                                    <TextBlock Text="Ações de Boost"
-                                               Foreground="{StaticResource AyvuText}"
-                                               FontSize="15" FontWeight="SemiBold"/>
-                                </StackPanel>
-                                <ScrollViewer Grid.Row="1" Margin="0,14,0,0"
-                                              VerticalScrollBarVisibility="Auto"
-                                              HorizontalScrollBarVisibility="Disabled"
-                                              Padding="0,0,6,0">
-                                    <ListView x:Name="BoostList" BorderThickness="0" Background="Transparent">
-                                        <ListView.View>
-                                            <GridView>
-                                                <GridViewColumn Header="Ação"    DisplayMemberBinding="{Binding Name}"    Width="130"/>
-                                                <GridViewColumn Header="OK"      DisplayMemberBinding="{Binding Success}" Width="40"/>
-                                                <GridViewColumn Header="Detalhe" DisplayMemberBinding="{Binding Detail}"  Width="200"/>
-                                            </GridView>
-                                        </ListView.View>
-                                    </ListView>
-                                </ScrollViewer>
-                            </Grid>
-                        </Border>
-
-                        <!-- Input Lag -->
-                        <Border Grid.Row="2" Style="{StaticResource LargePanel}" Margin="0">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Border Width="3" Height="16" Background="#EF4444"
-                                            CornerRadius="2" Margin="0,0,10,0"/>
-                                    <TextBlock Text="Redução de Input Lag"
-                                               Foreground="{StaticResource AyvuText}"
-                                               FontSize="15" FontWeight="SemiBold"/>
-                                </StackPanel>
-                                <ScrollViewer Grid.Row="1" Margin="0,14,0,0"
-                                              VerticalScrollBarVisibility="Auto"
-                                              HorizontalScrollBarVisibility="Disabled"
-                                              Padding="0,0,6,0">
-                                    <ListView x:Name="InputLagList" BorderThickness="0" Background="Transparent">
-                                        <ListView.View>
-                                            <GridView>
-                                                <GridViewColumn Header="Otimização" DisplayMemberBinding="{Binding Name}"    Width="140"/>
-                                                <GridViewColumn Header="OK"         DisplayMemberBinding="{Binding Success}" Width="40"/>
-                                                <GridViewColumn Header="Detalhe"    DisplayMemberBinding="{Binding Detail}"  Width="200"/>
-                                            </GridView>
-                                        </ListView.View>
-                                    </ListView>
-                                </ScrollViewer>
-                            </Grid>
-                        </Border>
-                    </Grid>
+                    <!-- Otimizações (Boost + Input Lag unificados) -->
+                    <Border Grid.Column="2" Style="{StaticResource LargePanel}" Margin="0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Width="3" Height="16" Background="{StaticResource AyvuGreen}"
+                                        CornerRadius="2" Margin="0,0,10,0"/>
+                                <TextBlock Text="Otimizações"
+                                           Foreground="{StaticResource AyvuText}"
+                                           FontSize="15" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="OtimizacoesSubtitle"
+                                           Text="  —  clique em Otimizar para ativar"
+                                           Foreground="{StaticResource AyvuMuted}"
+                                           FontSize="12" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <ScrollViewer Grid.Row="1" Margin="0,14,0,0"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          Padding="0,0,6,0">
+                                <ListView x:Name="OtimizacoesList" BorderThickness="0" Background="Transparent">
+                                    <ListView.View>
+                                        <GridView>
+                                            <GridViewColumn Header="Otimização" DisplayMemberBinding="{Binding Name}"    Width="140"/>
+                                            <GridViewColumn Header="OK"         DisplayMemberBinding="{Binding Success}" Width="40"/>
+                                            <GridViewColumn Header="Detalhe"    DisplayMemberBinding="{Binding Detail}"  Width="200"/>
+                                        </GridView>
+                                    </ListView.View>
+                                </ListView>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
 
                     <!-- Log de Atividade -->
                     <Border Grid.Column="4" Style="{StaticResource LargePanel}" Margin="0">
