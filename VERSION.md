@@ -1,9 +1,17 @@
 ﻿# Versionamento
 
-**Atual:** `1.7.3`
+**Atual:** `1.7.4`
 **Arquivo/projeto atual:** `app/AYVUNoLag.csproj`
 
 ## Historico
+
+### 1.7.4 - 2026-05-31
+
+- Tipo: release
+- Autor: Codex
+- Motivo: reorganiza o layout principal em 2 linhas e move Ping Médio, Jitter, Packet Loss e Melhor Ping para dentro do Monitor em tempo real.
+- Breaking changes: nenhum
+- Validação: `dotnet build app/AYVUNoLag.csproj -c Release` → 0 erros, 2 avisos de dependência `NSec.Cryptography`.
 
 ### 1.7.3 - 2026-05-31
 
