@@ -1,9 +1,17 @@
 ﻿# Versionamento
 
-**Atual:** `1.7.6`
+**Atual:** `1.7.7`
 **Arquivo/projeto atual:** `app/AYVUNoLag.csproj`
 
 ## Historico
+
+### 1.7.7 - 2026-05-31
+
+- Tipo: release
+- Autor: Codex
+- Motivo: estica o Monitor em tempo real de ponta a ponta com os cards lado a lado e altera MSI Mode para aplicação individual por dispositivo.
+- Breaking changes: nenhum
+- Validação: `dotnet build app/AYVUNoLag.csproj -c Release` → 0 erros, 2 avisos de dependência `NSec.Cryptography`.
 
 ### 1.7.6 - 2026-05-31
 
