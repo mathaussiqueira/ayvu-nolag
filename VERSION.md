@@ -1,9 +1,17 @@
 ﻿# Versionamento
 
-**Atual:** `1.7.5`
+**Atual:** `1.7.6`
 **Arquivo/projeto atual:** `app/AYVUNoLag.csproj`
 
 ## Historico
+
+### 1.7.6 - 2026-05-31
+
+- Tipo: release
+- Autor: Codex
+- Motivo: reduz o intervalo de atualização do monitor para 500 ms, mantendo o layout com Monitor em tempo real centralizado no topo.
+- Breaking changes: nenhum
+- Validação: `dotnet build app/AYVUNoLag.csproj -c Release` → 0 erros, 2 avisos de dependência `NSec.Cryptography`.
 
 ### 1.7.5 - 2026-05-31
 

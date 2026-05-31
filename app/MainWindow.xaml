@@ -46,7 +46,7 @@
                                FontSize="18" FontWeight="SemiBold" FontFamily="Segoe UI"
                                VerticalAlignment="Center"/>
                     <Border Style="{StaticResource VersionBadge}">
-                        <TextBlock Text="v1.7.5" Foreground="{StaticResource AyvuText}"
+                        <TextBlock Text="v1.7.6" Foreground="{StaticResource AyvuText}"
                                    FontSize="10" FontWeight="SemiBold"/>
                     </Border>
                     <Border x:Name="LicenseBadge"
