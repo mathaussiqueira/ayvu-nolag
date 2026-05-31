@@ -14,9 +14,9 @@
     <Title>AYVU NoLag</Title>
     <Company>AYVU</Company>
     <Description>Diagnóstico e otimização de rede para gaming</Description>
-    <Version>1.7.4</Version>
-    <FileVersion>1.7.4.0</FileVersion>
-    <InformationalVersion>1.7.4</InformationalVersion>
+    <Version>1.7.5</Version>
+    <FileVersion>1.7.5.0</FileVersion>
+    <InformationalVersion>1.7.5</InformationalVersion>
     <Copyright>© 2026 AYVU</Copyright>
     <!-- Publica como EXE único — embute DLLs nativas do WPF -->
     <PublishSingleFile>true</PublishSingleFile>

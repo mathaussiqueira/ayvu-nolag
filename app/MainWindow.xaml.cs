@@ -60,7 +60,7 @@ public partial class MainWindow : Window
     private static readonly SolidColorBrush BrushAccent  = new(Color.FromRgb(0xFF, 0x44, 0x00));
 
     // ── Auto-update ───────────────────────────────────────────────────────────
-    private const string CurrentVersion = "1.7.4";
+    private const string CurrentVersion = "1.7.5";
     private string _updateDownloadUrl   = "";
     private static readonly HttpClient _downloadHttp = new() { Timeout = TimeSpan.FromMinutes(30) };
     private static readonly HttpClient _licenseHttp  = new() { Timeout = TimeSpan.FromSeconds(8) };

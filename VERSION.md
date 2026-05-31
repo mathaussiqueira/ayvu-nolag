@@ -1,9 +1,17 @@
 ﻿# Versionamento
 
-**Atual:** `1.7.4`
+**Atual:** `1.7.5`
 **Arquivo/projeto atual:** `app/AYVUNoLag.csproj`
 
 ## Historico
+
+### 1.7.5 - 2026-05-31
+
+- Tipo: release
+- Autor: Codex
+- Motivo: centraliza o Monitor em tempo real no topo e reorganiza as linhas seguintes como Ping/MSI/Jogos e DNS/Diagnóstico/Otimizações/Log.
+- Breaking changes: nenhum
+- Validação: `dotnet build app/AYVUNoLag.csproj -c Release` → 0 erros, 2 avisos de dependência `NSec.Cryptography`.
 
 ### 1.7.4 - 2026-05-31
 
