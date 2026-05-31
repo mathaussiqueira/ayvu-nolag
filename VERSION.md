@@ -1,9 +1,17 @@
 ﻿# Versionamento
 
-**Atual:** `1.7.2`
+**Atual:** `1.7.3`
 **Arquivo/projeto atual:** `app/AYVUNoLag.csproj`
 
 ## Historico
+
+### 1.7.3 - 2026-05-31
+
+- Tipo: release
+- Autor: Codex
+- Motivo: reorganiza o monitor em tempo real para exibir CPU, RAM, GPU e Disco lado a lado, reduzindo altura vertical.
+- Breaking changes: nenhum
+- Validação: `dotnet build app/AYVUNoLag.csproj -c Release` → 0 erros, 2 avisos de dependência `NSec.Cryptography`.
 
 ### 1.7.2 - 2026-05-31
 

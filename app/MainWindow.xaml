@@ -46,7 +46,7 @@
                                FontSize="18" FontWeight="SemiBold" FontFamily="Segoe UI"
                                VerticalAlignment="Center"/>
                     <Border Style="{StaticResource VersionBadge}">
-                        <TextBlock Text="v1.7.2" Foreground="{StaticResource AyvuText}"
+                        <TextBlock Text="v1.7.3" Foreground="{StaticResource AyvuText}"
                                    FontSize="10" FontWeight="SemiBold"/>
                     </Border>
                     <Border x:Name="LicenseBadge"
@@ -195,63 +195,108 @@
                         </StackPanel>
 
                         <Border Grid.Row="1" Background="#030303" CornerRadius="7"
-                                Padding="14,12" Margin="0,14,0,0">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="*"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="110"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
+                                Padding="10" Margin="0,10,0,0">
+                            <UniformGrid Columns="4">
+                                <Border Background="#080808" BorderBrush="#1C1C1C" BorderThickness="1"
+                                        CornerRadius="6" Padding="10,8" Margin="0,0,6,0">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="36"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Border Width="8" Height="8" Background="{StaticResource AyvuGreen}" CornerRadius="2" Margin="0,1,6,0"/>
+                                                <TextBlock Text="CPU" Foreground="{StaticResource AyvuText}" FontSize="10" FontWeight="SemiBold"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                                <TextBlock x:Name="CardCpuValue" Text="--%" Foreground="{StaticResource AyvuText}" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                                <TextBlock x:Name="CardCpuLabel" Text="de uso" Foreground="{StaticResource AyvuMuted}" FontSize="8" HorizontalAlignment="Right"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <Canvas x:Name="CpuSparkline" Grid.Row="1" Height="36" ClipToBounds="True" Margin="0,6,0,0"/>
+                                    </Grid>
+                                </Border>
 
-                                <!-- CPU -->
-                                <StackPanel Margin="0,0,10,0" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Border Width="8" Height="8" Background="{StaticResource AyvuGreen}" CornerRadius="2" Margin="0,2,6,0"/>
-                                        <TextBlock Text="CPU" Foreground="{StaticResource AyvuText}" FontSize="11" FontWeight="SemiBold"/>
-                                    </StackPanel>
-                                    <TextBlock x:Name="CardCpuValue" Text="--%" Foreground="{StaticResource AyvuText}" FontSize="13" FontWeight="Bold" Margin="14,5,0,0"/>
-                                    <TextBlock x:Name="CardCpuLabel" Text="de uso" Foreground="{StaticResource AyvuMuted}" FontSize="8" Margin="14,1,0,0"/>
-                                </StackPanel>
-                                <Canvas x:Name="CpuSparkline" Grid.Column="1" Height="58" ClipToBounds="True"/>
+                                <Border Background="#080808" BorderBrush="#1C1C1C" BorderThickness="1"
+                                        CornerRadius="6" Padding="10,8" Margin="2,0,6,0">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="36"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Border Width="8" Height="8" Background="{StaticResource AyvuGreen}" CornerRadius="2" Margin="0,1,6,0"/>
+                                                <TextBlock Text="RAM" Foreground="{StaticResource AyvuText}" FontSize="10" FontWeight="SemiBold"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                                <TextBlock x:Name="CardRamValue" Text="-- GB" Foreground="{StaticResource AyvuText}" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                                <TextBlock x:Name="CardRamLabel" Text="de uso" Foreground="{StaticResource AyvuMuted}" FontSize="8" HorizontalAlignment="Right"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <Canvas x:Name="RamSparkline" Grid.Row="1" Height="36" ClipToBounds="True" Margin="0,6,0,0"/>
+                                    </Grid>
+                                </Border>
 
-                                <!-- RAM -->
-                                <StackPanel Grid.Row="1" Margin="0,0,10,0" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Border Width="8" Height="8" Background="{StaticResource AyvuGreen}" CornerRadius="2" Margin="0,2,6,0"/>
-                                        <TextBlock Text="RAM" Foreground="{StaticResource AyvuText}" FontSize="11" FontWeight="SemiBold"/>
-                                    </StackPanel>
-                                    <TextBlock x:Name="CardRamValue" Text="-- GB" Foreground="{StaticResource AyvuText}" FontSize="13" FontWeight="Bold" Margin="14,5,0,0"/>
-                                    <TextBlock x:Name="CardRamLabel" Text="de uso" Foreground="{StaticResource AyvuMuted}" FontSize="8" Margin="14,1,0,0"/>
-                                </StackPanel>
-                                <Canvas x:Name="RamSparkline" Grid.Row="1" Grid.Column="1" Height="58" ClipToBounds="True"/>
+                                <Border Background="#080808" BorderBrush="#1C1C1C" BorderThickness="1"
+                                        CornerRadius="6" Padding="10,8" Margin="2,0,6,0">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="36"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Border Width="8" Height="8" Background="{StaticResource AyvuGreen}" CornerRadius="2" Margin="0,1,6,0"/>
+                                                <TextBlock Text="GPU" Foreground="{StaticResource AyvuText}" FontSize="10" FontWeight="SemiBold"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                                <TextBlock x:Name="CardGpuValue" Text="--%" Foreground="{StaticResource AyvuText}" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                                <TextBlock x:Name="CardGpuLabel" Text="de uso" Foreground="{StaticResource AyvuMuted}" FontSize="8" HorizontalAlignment="Right"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <Canvas x:Name="GpuSparkline" Grid.Row="1" Height="36" ClipToBounds="True" Margin="0,6,0,0"/>
+                                    </Grid>
+                                </Border>
 
-                                <!-- GPU -->
-                                <StackPanel Grid.Row="2" Margin="0,0,10,0" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Border Width="8" Height="8" Background="{StaticResource AyvuGreen}" CornerRadius="2" Margin="0,2,6,0"/>
-                                        <TextBlock Text="GPU" Foreground="{StaticResource AyvuText}" FontSize="11" FontWeight="SemiBold"/>
-                                    </StackPanel>
-                                    <TextBlock x:Name="CardGpuValue" Text="--%" Foreground="{StaticResource AyvuText}" FontSize="13" FontWeight="Bold" Margin="14,5,0,0"/>
-                                    <TextBlock x:Name="CardGpuLabel" Text="de uso" Foreground="{StaticResource AyvuMuted}" FontSize="8" Margin="14,1,0,0"/>
-                                </StackPanel>
-                                <Canvas x:Name="GpuSparkline" Grid.Row="2" Grid.Column="1" Height="58" ClipToBounds="True"/>
-
-                                <!-- DISCO -->
-                                <StackPanel Grid.Row="3" Margin="0,0,10,0" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Border Width="8" Height="8" Background="{StaticResource AyvuGreen}" CornerRadius="2" Margin="0,2,6,0"/>
-                                        <TextBlock Text="Disco" Foreground="{StaticResource AyvuText}" FontSize="11" FontWeight="SemiBold"/>
-                                    </StackPanel>
-                                    <TextBlock x:Name="CardDiskValue" Text="--%" Foreground="{StaticResource AyvuText}" FontSize="13" FontWeight="Bold" Margin="14,5,0,0"/>
-                                    <TextBlock x:Name="CardDiskLabel" Text="de uso" Foreground="{StaticResource AyvuMuted}" FontSize="8" Margin="14,1,0,0"/>
-                                </StackPanel>
-                                <Canvas x:Name="DiskSparkline" Grid.Row="3" Grid.Column="1" Height="58" ClipToBounds="True"/>
-                            </Grid>
+                                <Border Background="#080808" BorderBrush="#1C1C1C" BorderThickness="1"
+                                        CornerRadius="6" Padding="10,8" Margin="2,0,0,0">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="36"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Border Width="8" Height="8" Background="{StaticResource AyvuGreen}" CornerRadius="2" Margin="0,1,6,0"/>
+                                                <TextBlock Text="Disco" Foreground="{StaticResource AyvuText}" FontSize="10" FontWeight="SemiBold"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                                <TextBlock x:Name="CardDiskValue" Text="--%" Foreground="{StaticResource AyvuText}" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                                <TextBlock x:Name="CardDiskLabel" Text="de uso" Foreground="{StaticResource AyvuMuted}" FontSize="8" HorizontalAlignment="Right"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <Canvas x:Name="DiskSparkline" Grid.Row="1" Height="36" ClipToBounds="True" Margin="0,6,0,0"/>
+                                    </Grid>
+                                </Border>
+                            </UniformGrid>
                         </Border>
                     </Grid>
                 </Border>
