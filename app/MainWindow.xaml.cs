@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using AYVUNoLag.Config;
 using AYVUNoLag.Models;
 using AYVUNoLag.Services;
@@ -27,10 +28,12 @@ public sealed class LogEntry
 public partial class MainWindow : Window
 {
     // ── Services ─────────────────────────────────────────────────────────────
-    private readonly NetworkDiagnosticService _diagnosticService = new();
-    private readonly LocalBoostService        _boostService      = new();
-    private readonly WarpService              _warpService       = new();
-    private readonly InputLagService         _inputLagService   = new();
+    private readonly NetworkDiagnosticService _diagnosticService   = new();
+    private readonly LocalBoostService        _boostService        = new();
+    private readonly WarpService              _warpService         = new();
+    private readonly InputLagService          _inputLagService     = new();
+    private readonly SystemMetricsService     _systemMetrics       = new();
+    private readonly MsiModeService           _msiService          = new();
 
     // ── State ─────────────────────────────────────────────────────────────────
     private CancellationTokenSource?                    _monitorCts;
@@ -42,6 +45,13 @@ public partial class MainWindow : Window
     private int  _liveCycle        = 0;
     private int? _boostedProcessId = null;
 
+    // ── Sparkline history (Monitor em tempo real) ─────────────────────────────
+    private const int SparkPoints = 40;
+    private readonly Queue<double> _cpuHistory  = new();
+    private readonly Queue<double> _ramHistory  = new();
+    private readonly Queue<double> _gpuHistory  = new();
+    private readonly Queue<double> _diskHistory = new();
+
     // ── Color constants ───────────────────────────────────────────────────────
     private static readonly SolidColorBrush BrushSuccess = new(Color.FromRgb(0x22, 0xC5, 0x5E));
     private static readonly SolidColorBrush BrushWarning = new(Color.FromRgb(0xF5, 0xA6, 0x23));
@@ -50,7 +60,7 @@ public partial class MainWindow : Window
     private static readonly SolidColorBrush BrushAccent  = new(Color.FromRgb(0xFF, 0x44, 0x00));
 
     // ── Auto-update ───────────────────────────────────────────────────────────
-    private const string CurrentVersion = "1.2.0";
+    private const string CurrentVersion = "1.7.2";
     private string _updateDownloadUrl   = "";
     private static readonly HttpClient _downloadHttp = new() { Timeout = TimeSpan.FromMinutes(30) };
     private static readonly HttpClient _licenseHttp  = new() { Timeout = TimeSpan.FromSeconds(8) };
@@ -59,14 +69,6 @@ public partial class MainWindow : Window
     private WarpStatus _warpStatus = WarpStatus.NotReady;
     private bool       _warpBusy   = false;
 
-    // ── Overlay ───────────────────────────────────────────────────────────────
-    private OverlayWindow? _overlayWindow;
-    private const int  HOTKEY_ID = 9001;
-    private const uint MOD_ALT   = 0x0001;
-    private const uint VK_V      = 0x56;
-
-    [DllImport("user32.dll")] private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
-    [DllImport("user32.dll")] private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
     // ── Constructor ───────────────────────────────────────────────────────────
     public MainWindow()
@@ -76,7 +78,9 @@ public partial class MainWindow : Window
         PingList.ItemsSource     = _livePingItems;
         GameComboBox.ItemsSource = _gameComboItems;
         LoadGames();
+        LoadGpuModePanel();
         AddLog("App iniciado. Monitoramento em tempo real ativado.", "OK", BrushSuccess);
+
         StartLiveMonitor();
         _ = Task.Run(CheckForUpdateAsync);
         _ = Task.Run(async () =>
@@ -414,6 +418,34 @@ public partial class MainWindow : Window
         UpdateBanner.Visibility = Visibility.Collapsed;
     }
 
+    // ── Restart Banner (MSI Mode) ─────────────────────────────────────────────
+    private void RestartDismiss_Click(object sender, RoutedEventArgs e)
+    {
+        RestartBanner.Visibility = Visibility.Collapsed;
+        AddLog("MSI Mode ativo — reinicie o computador para efeito total.", "⚠", BrushWarning);
+    }
+
+    private void RestartNow_Click(object sender, RoutedEventArgs e)
+    {
+        RestartBanner.Visibility = Visibility.Collapsed;
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName        = "shutdown",
+                Arguments       = "/r /t 15 /c \"AYVU NoLag — Reiniciando para aplicar MSI Mode da GPU\"",
+                UseShellExecute = false,
+                CreateNoWindow  = true,
+            });
+            AddLog("Reinicialização agendada em 15 segundos.", "OK", BrushSuccess);
+            StatusBarText.Text = "Reiniciando em 15s para aplicar MSI Mode...";
+        }
+        catch (Exception ex)
+        {
+            AddLog($"Erro ao agendar reinicialização: {ex.Message}", "✕", BrushDanger);
+        }
+    }
+
     private static void LaunchUpdaterScript(string tempExe)
     {
         var currentExe = Environment.ProcessPath ?? "";
@@ -421,10 +453,11 @@ public partial class MainWindow : Window
 
         var scriptPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ayvu_nolag_updater.cmd");
 
+        // Usa aspas duplas nos SET para lidar com espaços no caminho
         var script =
             "@echo off\r\n" +
-            $"set SRC={tempExe}\r\n" +
-            $"set DST={currentExe}\r\n" +
+            $"set \"SRC={tempExe}\"\r\n" +
+            $"set \"DST={currentExe}\"\r\n" +
             "timeout /t 8 /nobreak >nul\r\n" +
             "set /a TRIES=0\r\n" +
             ":retry\r\n" +
@@ -435,6 +468,9 @@ public partial class MainWindow : Window
             "    timeout /t 2 /nobreak >nul\r\n" +
             "    goto retry\r\n" +
             ")\r\n" +
+            // Falhou após 15 tentativas — avisa o usuário e abre a pasta de download
+            "msg * \"A atualização do AYVU NoLag falhou. Baixe manualmente em: github.com/mathaussiqueira/ayvu-nolag/releases\" 2>nul\r\n" +
+            "start \"\" \"https://github.com/mathaussiqueira/ayvu-nolag/releases\"\r\n" +
             "goto done\r\n" +
             ":ok\r\n" +
             "start \"\" \"%DST%\"\r\n" +
@@ -461,8 +497,6 @@ public partial class MainWindow : Window
         base.OnSourceInitialized(e);
         var source = (HwndSource)PresentationSource.FromVisual(this);
         source.AddHook(HwndHook);
-        // Registra hotkey global Alt+Shift+N para toggle do overlay
-        RegisterHotKey(source.Handle, HOTKEY_ID, MOD_ALT, VK_V);
     }
 
     protected override void OnClosed(EventArgs e)
@@ -470,23 +504,13 @@ public partial class MainWindow : Window
         _monitorCts?.Cancel();
         _scanCts?.Cancel();
         if (_inputLagService.IsActive) _inputLagService.Revert();
-        _overlayWindow?.Close();
-        var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-        UnregisterHotKey(hwnd, HOTKEY_ID);
+        _systemMetrics.Dispose();
         base.OnClosed(e);
     }
 
     private IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        const int WM_HOTKEY        = 0x0312;
         const int WM_GETMINMAXINFO = 0x0024;
-
-        if (msg == WM_HOTKEY && wParam.ToInt32() == HOTKEY_ID)
-        {
-            ToggleOverlay();
-            handled = true;
-            return IntPtr.Zero;
-        }
 
         if (msg != WM_GETMINMAXINFO) return IntPtr.Zero;
 
@@ -561,22 +585,6 @@ public partial class MainWindow : Window
             ? WindowState.Normal : WindowState.Maximized;
 
     // ══════════════════════════════════════════════════════════════════════════
-    // OVERLAY IN-GAME
-    // ══════════════════════════════════════════════════════════════════════════
-    private void OverlayButton_Click(object sender, RoutedEventArgs e)
-        => ToggleOverlay();
-
-    private void ToggleOverlay()
-    {
-        _overlayWindow ??= new OverlayWindow();
-
-        if (_overlayWindow.IsVisible)
-            _overlayWindow.Hide();
-        else
-            _overlayWindow.Show();
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════
     // LIVE MONITOR
     // ══════════════════════════════════════════════════════════════════════════
     private void StartLiveMonitor()
@@ -595,7 +603,7 @@ public partial class MainWindow : Window
         {
             try
             {
-                await Task.Delay(2000, ct);
+                await Task.Delay(1000, ct);
                 await DoLiveTick(ct, force: false);
             }
             catch (OperationCanceledException)
@@ -616,8 +624,15 @@ public partial class MainWindow : Window
     {
         _liveCycle++;
 
-        // Always: quick ping (all 3 targets in parallel)
-        var pings = await _diagnosticService.QuickPingAsync(ct);
+        // Always: quick ping + system metrics (paralelo)
+        var pingTask = _diagnosticService.QuickPingAsync(ct);
+        var sysMetrics = await Task.Run(() => (
+            cpu:  _systemMetrics.GetCpuUsage(),
+            gpu:  _systemMetrics.GetGpuUsage(),
+            ram:  _systemMetrics.GetRamUsage(),
+            disk: _systemMetrics.GetDiskUsage()
+        ), ct);
+        var pings = await pingTask;
 
         // Every 5 cycles (or forced): refresh game list
         IReadOnlyList<GameProcess>? games = null;
@@ -629,14 +644,44 @@ public partial class MainWindow : Window
         if (force || _liveCycle % 15 == 0)
             dns = await _diagnosticService.QuickDnsAsync(ct);
 
-        await Dispatcher.InvokeAsync(() => ApplyLiveTick(pings, games, dns));
+        await Dispatcher.InvokeAsync(() => ApplyLiveTick(pings, games, dns, sysMetrics.cpu, sysMetrics.gpu, sysMetrics.ram, sysMetrics.disk));
     }
 
     private void ApplyLiveTick(
-        IReadOnlyList<PingSample>    pings,
-        IReadOnlyList<GameProcess>?  games,
-        IReadOnlyList<DnsProbeResult>? dns)
+        IReadOnlyList<PingSample>      pings,
+        IReadOnlyList<GameProcess>?    games,
+        IReadOnlyList<DnsProbeResult>? dns,
+        float cpu = -1f, float gpu = -1f,
+        (double usedGB, double totalGB) ram = default,
+        float disk = -1f)
     {
+        // ── Monitor em tempo real (sparklines estilo Windows Boost) ────────
+        var ramPct = ram.totalGB > 0 ? ram.usedGB / ram.totalGB * 100 : 0;
+
+        Enqueue(_cpuHistory,  cpu  >= 0 ? cpu  : 0);
+        Enqueue(_ramHistory,  ramPct);
+        Enqueue(_gpuHistory,  gpu  >= 0 ? gpu  : 0);
+        Enqueue(_diskHistory, disk >= 0 ? disk : 0);
+
+        var sparkColor = Color.FromRgb(0xFF, 0x44, 0x00);
+        DrawSparkline(CpuSparkline,  _cpuHistory,  100, sparkColor);
+        DrawSparkline(RamSparkline,  _ramHistory,  100, sparkColor);
+        DrawSparkline(GpuSparkline,  _gpuHistory,  100, sparkColor);
+        DrawSparkline(DiskSparkline, _diskHistory, 100, sparkColor);
+
+        CardCpuValue.Text  = cpu >= 0 ? $"{cpu:0}%" : "--%";
+        CardCpuLabel.Text  = "de uso";
+        CardGpuValue.Text  = gpu >= 0 ? $"{gpu:0}%" : "--%";
+        CardGpuLabel.Text  = "de uso";
+        CardDiskValue.Text = disk >= 0 ? $"{disk:0}%" : "--%";
+        CardDiskLabel.Text = "de uso";
+
+        if (ram.totalGB > 0)
+        {
+            CardRamValue.Text = $"{ram.usedGB:0.0} GB";
+            CardRamLabel.Text = $"de {ram.totalGB:0.0} GB";
+        }
+
         // ── Rolling window (max 30) ────────────────────────────────────────
         foreach (var p in pings)
             _rollingWindow.Add(p);
@@ -705,18 +750,6 @@ public partial class MainWindow : Window
             StatusBarText.Text    = verdict;
         }
 
-        // ── Overlay ───────────────────────────────────────────────────────
-        if (successful.Length > 0)
-        {
-            var avg    = Math.Round(successful.Average(), 1);
-            var jitter = Math.Round(successful.Select(v => Math.Abs(v - avg)).Average(), 1);
-            _overlayWindow?.UpdateMetrics(avg, jitter, loss, _boostedProcessId.HasValue);
-        }
-        else
-        {
-            _overlayWindow?.UpdateMetrics(-1, -1, loss, _boostedProcessId.HasValue);
-        }
-
         // ── Timestamps ────────────────────────────────────────────────────
         var now = DateTime.Now.ToString("HH:mm:ss");
         VerdictTimestamp.Text = $"Última análise: {now}";
@@ -756,7 +789,11 @@ public partial class MainWindow : Window
             // Reset rolling window for fresh metrics
             _rollingWindow.Clear();
 
-            ApplyLiveTick(pings, games, dns);
+            var cpu  = _systemMetrics.GetCpuUsage();
+            var gpu  = _systemMetrics.GetGpuUsage();
+            var ram  = _systemMetrics.GetRamUsage();
+            var disk = _systemMetrics.GetDiskUsage();
+            ApplyLiveTick(pings, games, dns, cpu, gpu, ram, disk);
             AddLog("Análise concluída.", "OK", BrushSuccess);
         }
         catch (OperationCanceledException)
@@ -825,6 +862,150 @@ public partial class MainWindow : Window
         <= 10 => ("● Moderada", BrushWarning),
         _     => ("● Alta",     BrushDanger),
     };
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // MSI MODE — painel dedicado (GPU + Rede)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    // View-model para binding na lista
+    public sealed class MsiDeviceVm : System.ComponentModel.INotifyPropertyChanged
+    {
+        private bool _msiEnabled;
+        public string Name     { get; init; } = "";
+        public string Category { get; init; } = "";
+        public string PnpId    { get; init; } = "";
+        public bool   MsiEnabled
+        {
+            get => _msiEnabled;
+            set { _msiEnabled = value; OnChanged(nameof(MsiEnabled)); OnChanged(nameof(StatusLabel)); OnChanged(nameof(StatusBrush)); }
+        }
+        public string StatusLabel => _msiEnabled ? "● MSI ativo" : "● MSI inativo";
+        public SolidColorBrush StatusBrush => _msiEnabled
+            ? new SolidColorBrush(Color.FromRgb(0x22, 0xC5, 0x5E))
+            : new SolidColorBrush(Color.FromRgb(0xA3, 0xA3, 0xA3));
+
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+        private void OnChanged(string n) => PropertyChanged?.Invoke(this, new(n));
+    }
+
+    private readonly ObservableCollection<MsiDeviceVm> _msiDevices = [];
+
+    private void LoadGpuModePanel()
+    {
+        MsiDeviceList.ItemsSource = _msiDevices;
+        RefreshMsiDevices();
+    }
+
+    private void RefreshMsiDevices()
+    {
+        _msiDevices.Clear();
+        foreach (var d in _msiService.DetectDevices())
+        {
+            _msiDevices.Add(new MsiDeviceVm
+            {
+                Name       = d.Name,
+                Category   = d.Category,
+                PnpId      = d.PnpId,
+                MsiEnabled = d.MsiEnabled,
+            });
+        }
+        if (_msiDevices.Count == 0)
+            MsiApplyStatus.Text = "Nenhum dispositivo compatível detectado (execute como Administrador).";
+    }
+
+    // Toggle individual de um dispositivo
+    private void MsiDeviceToggle_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.CheckBox cb || cb.Tag is not string pnpId) return;
+        var enable = cb.IsChecked == true;
+
+        var (ok, changed, detail) = _msiService.SetMsi(pnpId, enable);
+        SetMsiStatus(ok, detail);
+
+        if (ok && changed)
+        {
+            AddLog($"MSI Mode: {detail}", "OK", BrushSuccess);
+            RestartBanner.Visibility = Visibility.Visible;
+        }
+        else if (!ok)
+        {
+            // Reverte o checkbox visual se falhou
+            cb.IsChecked = !enable;
+        }
+    }
+
+    private void MsiEnableAll_Click(object sender, RoutedEventArgs e)
+    {
+        var (applied, changed, detail) = _msiService.SetMsiAll(enable: true);
+        SetMsiStatus(applied > 0, detail);
+        RefreshMsiDevices();
+        if (changed > 0)
+        {
+            AddLog($"MSI Mode ativado em {changed} dispositivo(s).", "OK", BrushSuccess);
+            RestartBanner.Visibility = Visibility.Visible;
+        }
+    }
+
+    private void MsiDisableAll_Click(object sender, RoutedEventArgs e)
+    {
+        var (applied, changed, detail) = _msiService.SetMsiAll(enable: false);
+        SetMsiStatus(applied > 0, detail);
+        RefreshMsiDevices();
+        if (changed > 0)
+        {
+            AddLog($"MSI Mode desativado em {changed} dispositivo(s).", "OK", BrushMuted);
+            RestartBanner.Visibility = Visibility.Visible;
+        }
+    }
+
+    private void SetMsiStatus(bool ok, string detail)
+    {
+        MsiApplyStatus.Text       = (ok ? "✓ " : "✗ ") + detail;
+        MsiApplyStatus.Foreground = ok ? BrushSuccess : BrushDanger;
+    }
+
+    private static void Enqueue(Queue<double> queue, double value)
+    {
+        queue.Enqueue(Math.Clamp(value, 0, 100));
+        while (queue.Count > SparkPoints)
+            queue.Dequeue();
+    }
+
+    private static void DrawSparkline(Canvas canvas, IEnumerable<double> values, double maxValue, Color color)
+    {
+        canvas.Children.Clear();
+
+        var points = values.ToList();
+        if (points.Count < 2) return;
+
+        var width = canvas.ActualWidth;
+        var height = canvas.ActualHeight;
+        if (width <= 0 || height <= 0)
+        {
+            width = canvas.Width > 0 ? canvas.Width : 180;
+            height = canvas.Height > 0 ? canvas.Height : 58;
+        }
+
+        var safeMax = maxValue <= 0 ? 100 : maxValue;
+        var step = width / Math.Max(1, points.Count - 1);
+        var polyline = new Polyline
+        {
+            Stroke = new SolidColorBrush(color),
+            StrokeThickness = 2,
+            StrokeLineJoin = PenLineJoin.Round,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            Opacity = 0.95,
+        };
+
+        for (var i = 0; i < points.Count; i++)
+        {
+            var normalized = Math.Clamp(points[i] / safeMax, 0, 1);
+            polyline.Points.Add(new Point(i * step, height - normalized * height));
+        }
+
+        canvas.Children.Add(polyline);
+    }
 
     private void LoadGames()
     {

@@ -18,3 +18,5 @@ Thumbs.db
 *.nupkg
 *.snupkg
 app/publish/
+publish/
+publish-*/

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Management;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
 using AYVUNoLag.Models;
@@ -30,6 +31,12 @@ public sealed class InputLagService
     private int    _previousGameDvr         = -1;
     private int    _previousAppCapture      = -1;
     private int    _previousMinAnimate      = -1;
+    private int    _previousGpuPriority     = -1;
+    private int    _previousHagsMode        = -1;
+    private bool   _tcpTimestampsDisabled   = false;
+    private int    _previousVisualFx        = -1;
+    private int    _previousTransparency    = -1;
+    private int    _previousFseBehavior     = -1;
 
     public bool IsActive { get; private set; } = false;
 
@@ -47,6 +54,12 @@ public sealed class InputLagService
             ApplySystemResponsiveness(),
             ApplyGameDvr(),
             ApplyWindowsAnimations(),
+            ApplyGpuPriority(),
+            ApplyHags(),
+            ApplyTcpTimestamps(),
+            ApplyFullscreenOptimizations(),
+            ApplyVisualEffects(),
+            ApplyProcessMemoryTrim(),
         };
         IsActive = true;
         return r;
@@ -66,6 +79,11 @@ public sealed class InputLagService
             RevertSystemResponsiveness(),
             RevertGameDvr(),
             RevertWindowsAnimations(),
+            RevertGpuPriority(),
+            RevertHags(),
+            RevertTcpTimestamps(),
+            RevertFullscreenOptimizations(),
+            RevertVisualEffects(),
         };
         IsActive = false;
         return r;
@@ -401,6 +419,242 @@ public sealed class InputLagService
         catch (Exception ex) { return Fail("Animações Windows", ex.Message); }
     }
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // 10. GPU PRIORITY no SystemProfile\Tasks\Games
+    //     GPU Priority=8 + Priority=6 + Scheduling Category=High
+    //     Diz ao Windows Scheduler para dar máxima prioridade de GPU ao jogo.
+    // ══════════════════════════════════════════════════════════════════════════
+    private const string GamesTaskKey =
+        @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games";
+
+    private BoostActionResult ApplyGpuPriority()
+    {
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(GamesTaskKey, writable: true);
+            if (key is null) return Fail("GPU Priority", "Chave SystemProfile\\Tasks\\Games não encontrada");
+
+            _previousGpuPriority = (int)(key.GetValue("GPU Priority") ?? 8);
+
+            key.SetValue("GPU Priority",          8,      RegistryValueKind.DWord);
+            key.SetValue("Priority",              6,      RegistryValueKind.DWord);
+            key.SetValue("Scheduling Category",   "High", RegistryValueKind.String);
+            key.SetValue("SFIO Priority",         "High", RegistryValueKind.String);
+            key.SetValue("Background Only",       "False",RegistryValueKind.String);
+            key.SetValue("Clock Rate",            10000,  RegistryValueKind.DWord);
+
+            return Ok("GPU Priority", "GPU Priority=8, Scheduling=High — jogo recebe máxima prioridade de GPU");
+        }
+        catch (Exception ex) { return Fail("GPU Priority", ex.Message); }
+    }
+
+    private BoostActionResult RevertGpuPriority()
+    {
+        if (_previousGpuPriority < 0) return Skip("GPU Priority");
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(GamesTaskKey, writable: true);
+            if (key is null) return Skip("GPU Priority");
+            key.SetValue("GPU Priority",        _previousGpuPriority, RegistryValueKind.DWord);
+            key.SetValue("Priority",            2,      RegistryValueKind.DWord);
+            key.SetValue("Scheduling Category", "Medium", RegistryValueKind.String);
+            key.SetValue("SFIO Priority",       "Normal", RegistryValueKind.String);
+            key.SetValue("Background Only",     "True",  RegistryValueKind.String);
+            _previousGpuPriority = -1;
+            return Ok("GPU Priority", "Restaurado para padrão Windows");
+        }
+        catch (Exception ex) { return Fail("GPU Priority", ex.Message); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // 11. HAGS — Hardware-Accelerated GPU Scheduling
+    //     HwSchMode=2: GPU gerencia sua própria fila de memória diretamente,
+    //     reduzindo latência frame→tela em ~10-20% em GPUs modernas.
+    //     Requer GPU compatível (NVIDIA Turing+ / AMD RDNA+).
+    // ══════════════════════════════════════════════════════════════════════════
+    private const string GraphicsDriversKey =
+        @"SYSTEM\CurrentControlSet\Control\GraphicsDrivers";
+
+    private BoostActionResult ApplyHags()
+    {
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(GraphicsDriversKey, writable: true);
+            if (key is null) return Fail("HAGS", "Chave GraphicsDrivers não encontrada");
+
+            _previousHagsMode = (int)(key.GetValue("HwSchMode") ?? 1);
+            if (_previousHagsMode == 2)
+                return Ok("HAGS", "Hardware-Accelerated GPU Scheduling já estava ativo");
+
+            key.SetValue("HwSchMode", 2, RegistryValueKind.DWord);
+            return Ok("HAGS", "Ativado — GPU gerencia fila de memória diretamente (efeito no próximo boot)");
+        }
+        catch (Exception ex) { return Fail("HAGS", ex.Message); }
+    }
+
+    private BoostActionResult RevertHags()
+    {
+        if (_previousHagsMode < 0) return Skip("HAGS");
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(GraphicsDriversKey, writable: true);
+            if (key is null) return Skip("HAGS");
+            key.SetValue("HwSchMode", _previousHagsMode, RegistryValueKind.DWord);
+            _previousHagsMode = -1;
+            return Ok("HAGS", "Restaurado para estado anterior");
+        }
+        catch (Exception ex) { return Fail("HAGS", ex.Message); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // 12. TCP TIMESTAMPS — desativa overhead de timestamp por pacote
+    //     Timestamps TCP adicionam 12 bytes de overhead por pacote.
+    //     Desativar melhora throughput e reduz CPU em conexões de alta taxa.
+    // ══════════════════════════════════════════════════════════════════════════
+    private BoostActionResult ApplyTcpTimestamps()
+    {
+        try
+        {
+            var output = RunCmd("netsh", "int tcp set global timestamps=disabled");
+            _tcpTimestampsDisabled = true;
+            return Ok("TCP Timestamps", "Desativado — menos overhead por pacote TCP");
+        }
+        catch (Exception ex) { return Fail("TCP Timestamps", ex.Message); }
+    }
+
+    private BoostActionResult RevertTcpTimestamps()
+    {
+        if (!_tcpTimestampsDisabled) return Skip("TCP Timestamps");
+        try
+        {
+            RunCmd("netsh", "int tcp set global timestamps=enabled");
+            _tcpTimestampsDisabled = false;
+            return Ok("TCP Timestamps", "Restaurado para padrão Windows");
+        }
+        catch (Exception ex) { return Fail("TCP Timestamps", ex.Message); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // 13. FULLSCREEN OPTIMIZATIONS — desativa globalmente
+    //     Windows aplica DWM compositor mesmo em jogos "fullscreen" por padrão.
+    //     Desativar força Exclusive Fullscreen real — menos overhead de frame.
+    // ══════════════════════════════════════════════════════════════════════════
+    private BoostActionResult ApplyFullscreenOptimizations()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.CreateSubKey(GameConfigKey);
+            _previousFseBehavior = (int)(key.GetValue("GameDVR_FSEBehaviorMode") ?? 0);
+
+            key.SetValue("GameDVR_DXGIHonorFSEWindowsCompatible", 1, RegistryValueKind.DWord);
+            key.SetValue("GameDVR_EFSEFeatureFlags",               0, RegistryValueKind.DWord);
+            key.SetValue("GameDVR_FSEBehaviorMode",                2, RegistryValueKind.DWord);
+            key.SetValue("GameDVR_HonorUserFSEBehaviorMode",       1, RegistryValueKind.DWord);
+            key.SetValue("GameDVR_FSEBehavior",                    2, RegistryValueKind.DWord);
+
+            return Ok("Fullscreen Optimizations", "Desativadas — jogo usará Exclusive Fullscreen real (+FPS)");
+        }
+        catch (Exception ex) { return Fail("Fullscreen Optimizations", ex.Message); }
+    }
+
+    private BoostActionResult RevertFullscreenOptimizations()
+    {
+        if (_previousFseBehavior < 0) return Skip("Fullscreen Optimizations");
+        try
+        {
+            using var key = Registry.CurrentUser.CreateSubKey(GameConfigKey);
+            key.SetValue("GameDVR_DXGIHonorFSEWindowsCompatible", 0, RegistryValueKind.DWord);
+            key.SetValue("GameDVR_EFSEFeatureFlags",               0, RegistryValueKind.DWord);
+            key.SetValue("GameDVR_FSEBehaviorMode",  _previousFseBehavior, RegistryValueKind.DWord);
+            key.SetValue("GameDVR_HonorUserFSEBehaviorMode", 0, RegistryValueKind.DWord);
+            _previousFseBehavior = -1;
+            return Ok("Fullscreen Optimizations", "Restaurado — Windows gerencia modo de tela novamente");
+        }
+        catch (Exception ex) { return Fail("Fullscreen Optimizations", ex.Message); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // 14. VISUAL EFFECTS — mínimo
+    //     Desativa sombras, transparência, animações de UI e Aero Peek.
+    //     Libera GPU compositor para o jogo.
+    // ══════════════════════════════════════════════════════════════════════════
+    private const string VisualEffectsKey  = @"Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects";
+    private const string PersonalizeKey    = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
+    private const string DwmKey            = @"Software\Microsoft\Windows\DWM";
+
+    private BoostActionResult ApplyVisualEffects()
+    {
+        try
+        {
+            using var vfx = Registry.CurrentUser.CreateSubKey(VisualEffectsKey);
+            _previousVisualFx = (int)(vfx.GetValue("VisualFXSetting") ?? 0);
+            vfx.SetValue("VisualFXSetting", 2, RegistryValueKind.DWord); // 2 = Best performance
+
+            using var pers = Registry.CurrentUser.CreateSubKey(PersonalizeKey);
+            _previousTransparency = (int)(pers.GetValue("EnableTransparency") ?? 1);
+            pers.SetValue("EnableTransparency", 0, RegistryValueKind.DWord);
+
+            using var dwm = Registry.CurrentUser.CreateSubKey(DwmKey);
+            dwm.SetValue("EnableAeroPeek", 0, RegistryValueKind.DWord);
+
+            return Ok("Visual Effects", "Mínimo ativo — GPU compositor liberado para o jogo (+FPS)");
+        }
+        catch (Exception ex) { return Fail("Visual Effects", ex.Message); }
+    }
+
+    private BoostActionResult RevertVisualEffects()
+    {
+        if (_previousVisualFx < 0) return Skip("Visual Effects");
+        try
+        {
+            using var vfx = Registry.CurrentUser.CreateSubKey(VisualEffectsKey);
+            vfx.SetValue("VisualFXSetting", _previousVisualFx, RegistryValueKind.DWord);
+
+            using var pers = Registry.CurrentUser.CreateSubKey(PersonalizeKey);
+            pers.SetValue("EnableTransparency", _previousTransparency < 0 ? 1 : _previousTransparency,
+                          RegistryValueKind.DWord);
+
+            using var dwm = Registry.CurrentUser.CreateSubKey(DwmKey);
+            dwm.SetValue("EnableAeroPeek", 1, RegistryValueKind.DWord);
+
+            _previousVisualFx = _previousTransparency = -1;
+            return Ok("Visual Effects", "Restaurado para configuração anterior");
+        }
+        catch (Exception ex) { return Fail("Visual Effects", ex.Message); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // 15. TRIM MEMÓRIA DE PROCESSOS EM BACKGROUND
+    //     EmptyWorkingSet em processos não críticos libera RAM física para o
+    //     jogo. Processos recuperam memória naturalmente quando necessário.
+    // ══════════════════════════════════════════════════════════════════════════
+    private static readonly HashSet<string> _systemProcs = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "system", "idle", "registry", "smss", "csrss", "wininit", "winlogon",
+        "lsass", "lsm", "services", "svchost", "fontdrvhost", "dwm",
+        "taskmgr", "conhost", "ayvu nolag", "AYVU NoLag"
+    };
+
+    private BoostActionResult ApplyProcessMemoryTrim()
+    {
+        var trimmed = 0;
+        foreach (var proc in Process.GetProcesses())
+        {
+            if (_systemProcs.Contains(proc.ProcessName)) continue;
+            try
+            {
+                EmptyWorkingSet(proc.Handle);
+                trimmed++;
+            }
+            catch { /* processo sem permissão — ignorar */ }
+        }
+        return Ok("Trim RAM background", $"Memória aparada em {trimmed} processos — mais RAM para o jogo");
+    }
+
+    // NOTA: MSI Mode foi movido para MsiModeService (painel GPU Mode dedicado),
+    // pois é uma configuração permanente de hardware — não faz parte do ciclo
+    // de otimizações por sessão que o botão Otimizar aplica/reverte.
+
     // ── Factories de resultado ────────────────────────────────────────────────
     private static BoostActionResult Ok(string name, string detail)
         => new(name, true,  detail);
@@ -424,7 +678,8 @@ public sealed class InputLagService
         return output;
     }
 
-    // ── P/Invoke — winmm.dll ──────────────────────────────────────────────────
-    [DllImport("winmm.dll")] private static extern uint timeBeginPeriod(uint uPeriod);
-    [DllImport("winmm.dll")] private static extern uint timeEndPeriod(uint uPeriod);
+    // ── P/Invoke ──────────────────────────────────────────────────────────────
+    [DllImport("winmm.dll")]  private static extern uint timeBeginPeriod(uint uPeriod);
+    [DllImport("winmm.dll")]  private static extern uint timeEndPeriod(uint uPeriod);
+    [DllImport("psapi.dll")]  private static extern bool EmptyWorkingSet(IntPtr processHandle);
 }

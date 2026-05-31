@@ -46,7 +46,7 @@
                                FontSize="18" FontWeight="SemiBold" FontFamily="Segoe UI"
                                VerticalAlignment="Center"/>
                     <Border Style="{StaticResource VersionBadge}">
-                        <TextBlock Text="v1.2.0" Foreground="{StaticResource AyvuText}"
+                        <TextBlock Text="v1.7.2" Foreground="{StaticResource AyvuText}"
                                    FontSize="10" FontWeight="SemiBold"/>
                     </Border>
                     <Border x:Name="LicenseBadge"
@@ -147,14 +147,6 @@
                             ToolTip="Reverte todas as otimizações"
                             Click="PararOtimizacaoButton_Click"/>
 
-                    <!-- Overlay in-game -->
-                    <Button x:Name="OverlayButton"
-                            Content="◫  Overlay"
-                            Style="{StaticResource OutlineAyvuNativeButton}"
-                            Height="44" Padding="20,0" Margin="8,0,0,0"
-                            ToolTip="Mostra/esconde overlay in-game (Alt+V)"
-                            Click="OverlayButton_Click"/>
-
                     <!-- WARP toggle (oculto até estar pronto) -->
                     <Button x:Name="WarpButton"
                             Content="◎  WARP"
@@ -180,13 +172,92 @@
             ══════════════════════════════════════════════════════════ -->
             <Grid Grid.Row="2" Margin="24,0,24,20">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>   <!-- Metric cards -->
+                    <RowDefinition Height="Auto"/>   <!-- System metrics -->
+                    <RowDefinition Height="Auto"/>   <!-- Network metric cards -->
                     <RowDefinition Height="1.8*"/>   <!-- Ping + (Veredicto | Jogos) -->
                     <RowDefinition Height="1*"/>     <!-- DNS + Boost + Log -->
                 </Grid.RowDefinitions>
 
-                <!-- ── ROW 0: Metric cards ──────────────────────────── -->
-                <UniformGrid Grid.Row="0" Columns="4" Margin="0,0,0,10">
+                <!-- ── ROW 0: Monitor em tempo real (estilo Windows Boost) ── -->
+                <Border Grid.Row="0" Style="{StaticResource LargePanel}" Padding="16" Margin="0,0,0,8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Width="3" Height="16" Background="{StaticResource AyvuGreen}"
+                                    CornerRadius="2" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Monitor em tempo real"
+                                       Foreground="{StaticResource AyvuText}"
+                                       FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <Border Grid.Row="1" Background="#030303" CornerRadius="7"
+                                Padding="14,12" Margin="0,14,0,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- CPU -->
+                                <StackPanel Margin="0,0,10,0" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Width="8" Height="8" Background="{StaticResource AyvuGreen}" CornerRadius="2" Margin="0,2,6,0"/>
+                                        <TextBlock Text="CPU" Foreground="{StaticResource AyvuText}" FontSize="11" FontWeight="SemiBold"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="CardCpuValue" Text="--%" Foreground="{StaticResource AyvuText}" FontSize="13" FontWeight="Bold" Margin="14,5,0,0"/>
+                                    <TextBlock x:Name="CardCpuLabel" Text="de uso" Foreground="{StaticResource AyvuMuted}" FontSize="8" Margin="14,1,0,0"/>
+                                </StackPanel>
+                                <Canvas x:Name="CpuSparkline" Grid.Column="1" Height="58" ClipToBounds="True"/>
+
+                                <!-- RAM -->
+                                <StackPanel Grid.Row="1" Margin="0,0,10,0" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Width="8" Height="8" Background="{StaticResource AyvuGreen}" CornerRadius="2" Margin="0,2,6,0"/>
+                                        <TextBlock Text="RAM" Foreground="{StaticResource AyvuText}" FontSize="11" FontWeight="SemiBold"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="CardRamValue" Text="-- GB" Foreground="{StaticResource AyvuText}" FontSize="13" FontWeight="Bold" Margin="14,5,0,0"/>
+                                    <TextBlock x:Name="CardRamLabel" Text="de uso" Foreground="{StaticResource AyvuMuted}" FontSize="8" Margin="14,1,0,0"/>
+                                </StackPanel>
+                                <Canvas x:Name="RamSparkline" Grid.Row="1" Grid.Column="1" Height="58" ClipToBounds="True"/>
+
+                                <!-- GPU -->
+                                <StackPanel Grid.Row="2" Margin="0,0,10,0" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Width="8" Height="8" Background="{StaticResource AyvuGreen}" CornerRadius="2" Margin="0,2,6,0"/>
+                                        <TextBlock Text="GPU" Foreground="{StaticResource AyvuText}" FontSize="11" FontWeight="SemiBold"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="CardGpuValue" Text="--%" Foreground="{StaticResource AyvuText}" FontSize="13" FontWeight="Bold" Margin="14,5,0,0"/>
+                                    <TextBlock x:Name="CardGpuLabel" Text="de uso" Foreground="{StaticResource AyvuMuted}" FontSize="8" Margin="14,1,0,0"/>
+                                </StackPanel>
+                                <Canvas x:Name="GpuSparkline" Grid.Row="2" Grid.Column="1" Height="58" ClipToBounds="True"/>
+
+                                <!-- DISCO -->
+                                <StackPanel Grid.Row="3" Margin="0,0,10,0" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Width="8" Height="8" Background="{StaticResource AyvuGreen}" CornerRadius="2" Margin="0,2,6,0"/>
+                                        <TextBlock Text="Disco" Foreground="{StaticResource AyvuText}" FontSize="11" FontWeight="SemiBold"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="CardDiskValue" Text="--%" Foreground="{StaticResource AyvuText}" FontSize="13" FontWeight="Bold" Margin="14,5,0,0"/>
+                                    <TextBlock x:Name="CardDiskLabel" Text="de uso" Foreground="{StaticResource AyvuMuted}" FontSize="8" Margin="14,1,0,0"/>
+                                </StackPanel>
+                                <Canvas x:Name="DiskSparkline" Grid.Row="3" Grid.Column="1" Height="58" ClipToBounds="True"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- ── ROW 1: Network metric cards ──────────────────── -->
+                <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,10">
                     <Border Style="{StaticResource MetricBox}" Margin="0,0,5,0">
                         <StackPanel>
                             <TextBlock Text="PING MÉDIO" Foreground="{StaticResource AyvuMuted}"
@@ -237,10 +308,12 @@
                     </Border>
                 </UniformGrid>
 
-                <!-- ── ROW 1: Amostras de Ping | Veredicto + Jogos ──── -->
-                <Grid Grid.Row="1" Margin="0,0,0,10">
+                <!-- ── ROW 2: Amostras de Ping | Veredicto + Jogos ──── -->
+                <Grid Grid.Row="2" Margin="0,0,0,10">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="1.6*"/>
+                        <ColumnDefinition Width="1.35*"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="0.95*"/>
                         <ColumnDefinition Width="10"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
@@ -277,8 +350,93 @@
                         </Grid>
                     </Border>
 
+                    <!-- MSI Mode (ao lado de Amostras de Ping) -->
+                    <Border Grid.Column="2" Style="{StaticResource LargePanel}" Margin="0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,4">
+                                <Border Width="3" Height="16" Background="{StaticResource AyvuGreen}"
+                                        CornerRadius="2" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="MSI Mode"
+                                           Foreground="{StaticResource AyvuText}"
+                                           FontSize="15" FontWeight="SemiBold"/>
+                            </StackPanel>
+
+                            <ScrollViewer Grid.Row="1" Margin="0,10,0,0"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          Padding="0,0,6,0">
+                                <ItemsControl x:Name="MsiDeviceList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#0A0A0A" BorderBrush="#1C1C1C"
+                                                    BorderThickness="1" CornerRadius="6"
+                                                    Padding="10,8" Margin="0,0,0,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <Border Background="#1A0802" BorderBrush="#FF4400"
+                                                                    BorderThickness="1" CornerRadius="3"
+                                                                    Padding="5,1" Margin="0,0,6,0">
+                                                                <TextBlock Text="{Binding Category}"
+                                                                           Foreground="#FF4400" FontSize="9"
+                                                                           FontWeight="Bold"/>
+                                                            </Border>
+                                                            <TextBlock Text="{Binding StatusLabel}"
+                                                                       Foreground="{Binding StatusBrush}"
+                                                                       FontSize="9" FontWeight="SemiBold"
+                                                                       VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                        <TextBlock Text="{Binding Name}"
+                                                                   Foreground="{StaticResource AyvuText}"
+                                                                   FontSize="11" FontWeight="SemiBold"
+                                                                   TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                                    </StackPanel>
+                                                    <CheckBox Grid.Column="1"
+                                                              IsChecked="{Binding MsiEnabled, Mode=TwoWay}"
+                                                              VerticalAlignment="Center" Margin="8,0,0,0"
+                                                              Tag="{Binding PnpId}"
+                                                              Click="MsiDeviceToggle_Click"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button x:Name="MsiEnableAllBtn"
+                                        Content="Ativar todos"
+                                        Style="{StaticResource PrimaryAyvuNativeButton}"
+                                        Height="32" Padding="12,0" FontSize="11"
+                                        Click="MsiEnableAll_Click"/>
+                                <Button x:Name="MsiDisableAllBtn"
+                                        Content="Desativar"
+                                        Style="{StaticResource OutlineAyvuNativeButton}"
+                                        Height="32" Padding="12,0" FontSize="11"
+                                        Margin="8,0,0,0"
+                                        Click="MsiDisableAll_Click"/>
+                            </StackPanel>
+
+                            <TextBlock Grid.Row="3" x:Name="MsiApplyStatus" Text=""
+                                       Foreground="{StaticResource AyvuMuted}"
+                                       FontSize="10" Margin="0,8,0,0"
+                                       TextWrapping="Wrap"/>
+                        </Grid>
+                    </Border>
+
                     <!-- Veredicto + Jogos (stacked) -->
-                    <Grid Grid.Column="2">
+                    <Grid Grid.Column="4">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
@@ -358,8 +516,8 @@
                     </Grid>
                 </Grid>
 
-                <!-- ── ROW 2: Resolução DNS | Ações de Boost | Log ─── -->
-                <Grid Grid.Row="2">
+                <!-- ── ROW 3: DNS | GPU Mode | Otimizações | Log ─── -->
+                <Grid Grid.Row="3">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="10"/>
@@ -396,6 +554,94 @@
                                     </ListView.View>
                                 </ListView>
                             </ScrollViewer>
+                        </Grid>
+                    </Border>
+
+                    <!-- MSI Mode legado (mantido oculto; painel ativo fica ao lado de Amostras de Ping) -->
+                    <Border Grid.Column="2" Style="{StaticResource LargePanel}" Margin="0" Visibility="Collapsed">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,4">
+                                <Border Width="3" Height="16" Background="{StaticResource AyvuGreen}"
+                                        CornerRadius="2" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="MSI Mode"
+                                           Foreground="{StaticResource AyvuText}"
+                                           FontSize="15" FontWeight="SemiBold"/>
+                            </StackPanel>
+
+                            <!-- Lista de dispositivos com toggle -->
+                            <ScrollViewer Grid.Row="1" Margin="0,10,0,0"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          Padding="0,0,6,0">
+                                <ItemsControl x:Name="MsiDeviceListLegacy">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#0A0A0A" BorderBrush="#1C1C1C"
+                                                    BorderThickness="1" CornerRadius="6"
+                                                    Padding="10,8" Margin="0,0,0,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <Border Background="#1A0802" BorderBrush="#FF4400"
+                                                                    BorderThickness="1" CornerRadius="3"
+                                                                    Padding="5,1" Margin="0,0,6,0">
+                                                                <TextBlock Text="{Binding Category}"
+                                                                           Foreground="#FF4400" FontSize="9"
+                                                                           FontWeight="Bold"/>
+                                                            </Border>
+                                                            <TextBlock Text="{Binding StatusLabel}"
+                                                                       Foreground="{Binding StatusBrush}"
+                                                                       FontSize="9" FontWeight="SemiBold"
+                                                                       VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                        <TextBlock Text="{Binding Name}"
+                                                                   Foreground="{StaticResource AyvuText}"
+                                                                   FontSize="11" FontWeight="SemiBold"
+                                                                   TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                                    </StackPanel>
+                                                    <CheckBox Grid.Column="1"
+                                                              IsChecked="{Binding MsiEnabled, Mode=TwoWay}"
+                                                              VerticalAlignment="Center" Margin="8,0,0,0"
+                                                              Tag="{Binding PnpId}"
+                                                              Click="MsiDeviceToggle_Click"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+
+                            <!-- Botões de ação rápida -->
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button x:Name="MsiEnableAllBtnLegacy"
+                                        Content="Ativar todos"
+                                        Style="{StaticResource PrimaryAyvuNativeButton}"
+                                        Height="32" Padding="12,0" FontSize="11"
+                                        Click="MsiEnableAll_Click"/>
+                                <Button x:Name="MsiDisableAllBtnLegacy"
+                                        Content="Desativar"
+                                        Style="{StaticResource OutlineAyvuNativeButton}"
+                                        Height="32" Padding="12,0" FontSize="11"
+                                        Margin="8,0,0,0"
+                                        Click="MsiDisableAll_Click"/>
+                            </StackPanel>
+
+                            <!-- Status resultado -->
+                            <TextBlock Grid.Row="3" x:Name="MsiApplyStatusLegacy" Text=""
+                                       Foreground="{StaticResource AyvuMuted}"
+                                       FontSize="10" Margin="0,8,0,0"
+                                       TextWrapping="Wrap"/>
                         </Grid>
                     </Border>
 
@@ -552,6 +798,79 @@
                                     Style="{StaticResource PrimaryAyvuNativeButton}"
                                     Height="40" Padding="20,0" Margin="10,0,0,0"
                                     Click="UpdateInstall_Click" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- ── Modal: reinicialização MSI Mode ──────────────────────────── -->
+            <Grid x:Name="RestartBanner"
+                  Grid.RowSpan="3"
+                  Visibility="Collapsed"
+                  Background="#88000000"
+                  Panel.ZIndex="201">
+                <Border MaxWidth="460"
+                        Background="#111111"
+                        BorderBrush="#F5A623"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Padding="36,28">
+                    <StackPanel>
+                        <!-- Cabeçalho -->
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Width="8" Height="8" Background="#F5A623"
+                                        CornerRadius="4" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Reinicialização necessária"
+                                           Foreground="{StaticResource AyvuText}"
+                                           FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="✕"
+                                    Style="{StaticResource WindowChromeButton}"
+                                    Width="32" Height="32" VerticalAlignment="Center"
+                                    Click="RestartDismiss_Click"/>
+                        </Grid>
+
+                        <!-- Ícone + mensagem -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <Border Width="36" Height="36" Background="#1A0F00"
+                                    BorderBrush="#F5A623" BorderThickness="1"
+                                    CornerRadius="8" Margin="0,0,14,0">
+                                <TextBlock Text="⚡" FontSize="18"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="MSI Mode alterado com sucesso"
+                                           Foreground="{StaticResource AyvuText}"
+                                           FontSize="13" FontWeight="SemiBold"/>
+                                <TextBlock Text="Configuração de hardware aplicada"
+                                           Foreground="#F5A623" FontSize="11" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="20"
+                                   Foreground="{StaticResource AyvuMuted}" Margin="0,0,0,24">
+                            <Run Text="O MSI Mode (Message Signaled Interrupts) foi alterado em um ou mais dispositivos. Esta mudança reduz a latência de interrupções — estabilizando o frametime (GPU) e o jitter de pacotes (rede)."/>
+                            <LineBreak/>
+                            <LineBreak/>
+                            <Run Text="Esta é uma configuração única e permanente. Reinicie o computador para que o driver carregue a nova configuração — você não precisará repetir." FontWeight="SemiBold" Foreground="{StaticResource AyvuText}"/>
+                        </TextBlock>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="Reiniciar depois"
+                                    Style="{StaticResource OutlineAyvuNativeButton}"
+                                    Height="40" Padding="20,0"
+                                    Click="RestartDismiss_Click"/>
+                            <Button Content="⟳  Reiniciar agora"
+                                    Style="{StaticResource PrimaryAyvuNativeButton}"
+                                    Height="40" Padding="20,0" Margin="10,0,0,0"
+                                    Click="RestartNow_Click"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
